@@ -49,12 +49,23 @@ async function uploadMultipleImages(files, folder = "images/products") {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ folder, filename, dataUrl }),
       });
+      
+      if (!r.ok) {
+        const errorText = await r.text();
+        console.error(`Error HTTP ${r.status}:`, errorText);
+        throw new Error(`HTTP ${r.status}: ${errorText}`);
+      }
+      
       const result = await r.json();
       if (result.ok) {
         results.push(result.url);
+      } else {
+        console.error("Upload failed for file:", filename, result);
+        throw new Error(result.error || "Upload failed");
       }
     } catch (e) {
-      console.error("Error uploading image:", e);
+      console.error("Error uploading image:", filename, e);
+      throw e; // Re-lanzar el error para que se maneje arriba
     }
   }
   return results;
@@ -174,15 +185,21 @@ document.addEventListener("DOMContentLoaded", function () {
     }
 
     $("#catStatus").textContent = "Subiendo imagen...";
-    const urls = await uploadMultipleImages([file], "images/cats");
+    
+    try {
+      const urls = await uploadMultipleImages([file], "images/cats");
 
-    if (urls.length > 0) {
-      categoryImageUrl = urls[0];
-      $("#catImg").value = categoryImageUrl;
-      showImagePreview([categoryImageUrl], "#catImagePreview", false);
-      $("#catStatus").textContent = "Imagen subida correctamente";
-    } else {
-      $("#catStatus").textContent = "Error al subir imagen";
+      if (urls.length > 0) {
+        categoryImageUrl = urls[0];
+        $("#catImg").value = categoryImageUrl;
+        showImagePreview([categoryImageUrl], "#catImagePreview", false);
+        $("#catStatus").textContent = "Imagen subida correctamente";
+      } else {
+        $("#catStatus").textContent = "No se pudo subir la imagen";
+      }
+    } catch (error) {
+      console.error("Error en uploadCatImage:", error);
+      $("#catStatus").textContent = `Error al subir imagen: ${error.message}`;
     }
   };
 
@@ -277,17 +294,21 @@ document.addEventListener("DOMContentLoaded", function () {
     }
 
     $("#pStatus").textContent = `Subiendo ${files.length} imagen(es)...`;
-    const urls = await uploadMultipleImages(files, "images/products");
+    
+    try {
+      const urls = await uploadMultipleImages(files, "images/products");
 
-    if (urls.length > 0) {
-      productImageUrls = [...productImageUrls, ...urls];
-      showImagePreview(productImageUrls, "#prodImagePreview", true);
-      updateProductUrlInputs();
-      $(
-        "#pStatus"
-      ).textContent = `${urls.length} imagen(es) subida(s) correctamente`;
-    } else {
-      $("#pStatus").textContent = "Error al subir imágenes";
+      if (urls.length > 0) {
+        productImageUrls = [...productImageUrls, ...urls];
+        showImagePreview(productImageUrls, "#prodImagePreview", true);
+        updateProductUrlInputs();
+        $("#pStatus").textContent = `${urls.length} imagen(es) subida(s) correctamente`;
+      } else {
+        $("#pStatus").textContent = "No se pudo subir ninguna imagen";
+      }
+    } catch (error) {
+      console.error("Error en uploadProdImages:", error);
+      $("#pStatus").textContent = `Error al subir imágenes: ${error.message}`;
     }
   };
 
