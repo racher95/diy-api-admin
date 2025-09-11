@@ -1,0 +1,58 @@
+<!doctype html><html lang="es"><head><meta charset="utf-8"/><title>DIY API Admin (v3)</title><meta name="viewport" content="width=device-width,initial-scale=1"/>
+<style>body{font-family:system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,'Helvetica Neue',Arial;max-width:1000px;margin:36px auto;padding:0 16px;}h1{margin-bottom:4px}.muted{color:#666}
+fieldset{border:1px solid #ddd;padding:16px;border-radius:8px;margin-bottom:24px}label{display:block;margin-top:8px}
+input,textarea,button{font:inherit;padding:8px;border:1px solid #ccc;border-radius:6px;width:100%}.row{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.row3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px}.actions{display:flex;gap:12px;margin-top:12px;align-items:center;flex-wrap:wrap}
+.pill{padding:2px 8px;border-radius:999px;background:#f2f2f2;border:1px solid #e6e6e6}img.preview{max-width:180px;margin-top:8px;border-radius:6px;border:1px solid #eee}
+.danger-btn{background:#b00020;color:#fff;border-color:#900;cursor:pointer}</style></head><body>
+<h1>DIY API Admin <span class="muted">(v3 con eliminar)</span></h1>
+<fieldset><legend>0) Conectar con tu API</legend><label>API Base URL <input id="apiBase" placeholder="https://TU-USUARIO.github.io/diy-emercado-api/"></label>
+<div class="actions"><button id="testApi">Probar conexión</button><span id="apiStatus" class="muted"></span><span id="apiDetected" class="pill"></span></div></fieldset>
+<fieldset><legend>1) Subir imagen</legend><label>Archivo <input type="file" id="file"/></label>
+<div class="row"><label>Carpeta (opcional) <input id="folder" placeholder="images/products"/></label><label>Nombre de archivo <input id="filename" placeholder="p-4011.jpg"/></label></div>
+<div class="actions"><button id="upload">Subir</button><span id="uploadStatus"></span></div><img id="preview" class="preview"/></fieldset>
+<fieldset><legend>2) Categoría</legend><div class="row"><label>ID <input id="catId" type="number" placeholder="201"/></label><label>Nombre <input id="catName" placeholder="Carpintería DIY"/></label></div>
+<div class="actions"><button id="loadCat">Cargar datos de esta ID</button><span id="catPreview" class="muted"></span></div>
+<label>Descripción <input id="catDesc" placeholder="Descripción corta"/></label><label>Imagen (URL) <input id="catImg" placeholder="https://.../images/cats/c-201.jpg"/></label>
+<div class="actions"><button id="saveCat">Guardar categoría</button><button id="deleteCat" class="danger-btn">Eliminar categoría</button>
+<label class="inline"><input type="checkbox" id="cascadeCat"> Eliminar también productos de esta categoría</label><span id="catStatus"></span></div></fieldset>
+<fieldset><legend>3) Producto</legend><div class="row3"><label>ID <input id="pId" type="number" placeholder="4011"/></label><label>Categoría ID <input id="pCatId" type="number" placeholder="201"/></label><label>Categoria nombre <input id="pCatName" placeholder="Carpintería DIY"/></label></div>
+<div class="actions"><button id="loadProd">Cargar datos de producto</button><span id="prodPreview" class="muted"></span></div>
+<div class="row"><label>Nombre <input id="pName" placeholder="Estantería hexagonal"/></label><label>Precio (cost) <input id="pCost" type="number" placeholder="12990"/></label></div>
+<label>Descripción <textarea id="pDesc" rows="3" placeholder="Descripción…"></textarea></label>
+<div class="row"><label>Imagen principal (URL) <input id="pImg" placeholder="https://.../images/products/p-4011.jpg"/></label><label>Imágenes extra (URLs separadas por coma) <input id="pImgs" placeholder="https://.../p-4011.jpg, https://.../p-4011-2.jpg"/></label></div>
+<div class="row"><label>Vendidos (soldCount) <input id="pSold" type="number" value="0"/></label><label>Moneda (currency) <input id="pCurr" value="UYU"/></label></div>
+<div class="actions"><button id="saveProd">Guardar producto</button><button id="deleteProd" class="danger-btn">Eliminar producto</button><span id="pStatus"></span></div></fieldset>
+<script>
+const $=s=>document.querySelector(s); const apiBaseInput=$("#apiBase"); const apiStatus=$("#apiStatus"); const apiDetected=$("#apiDetected");
+function getApi(){return(localStorage.getItem("DIY_API_BASE")||"").trim();} function setApi(v){localStorage.setItem("DIY_API_BASE",v.trim());}
+apiBaseInput.value=getApi();
+$("#testApi").onclick=async()=>{const base=apiBaseInput.value.trim(); if(!base){apiStatus.textContent="Ingresa la URL base"; return;}
+  apiStatus.textContent="Probando…"; try{const r=await fetch(new URL("cats/cat.json",base).toString(),{cache:"no-store"}); if(!r.ok) throw new Error(r.status);
+  const cats=await r.json(); setApi(base); apiStatus.textContent="Conectado ✔"; apiDetected.textContent=Array.isArray(cats)?`${cats.length} categorías`:"OK";}catch(e){apiStatus.textContent="No se pudo leer cats/cat.json ("+e+")"; apiDetected.textContent="";}};
+async function readJSON(path){const base=getApi(); if(!base) throw new Error("Configura API Base"); const url=new URL(path,base).toString(); const r=await fetch(url,{cache:"no-store"}); if(!r.ok) throw new Error(r.status+" "+url); return await r.json();}
+const readFileAsDataURL=f=>new Promise((res,rej)=>{const r=new FileReader(); r.onload=()=>res(r.result); r.onerror=rej; r.readAsDataURL(f);});
+$("#upload").onclick=async()=>{const file=$("#file").files[0]; if(!file){$("#uploadStatus").textContent="Elegí un archivo"; return;} const dataUrl=await readFileAsDataURL(file); $("#preview").src=dataUrl;
+  const folder=$("#folder").value.trim()||"images/products"; const filename=$("#filename").value.trim()||file.name; $("#uploadStatus").textContent="Subiendo…";
+  const r=await fetch("/.netlify/functions/uploadImage",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({folder,filename,dataUrl})});
+  const j=await r.json().catch(()=>({})); if(j.ok){$("#uploadStatus").innerHTML="OK → "+j.url; if(folder.includes("products")) $("#pImg").value=j.url; if(folder.includes("cats")) $("#catImg").value=j.url;} else {$("#uploadStatus").textContent="Error: "+(j||await r.text());}};
+$("#loadCat").onclick=async()=>{try{const id=+$("#catId").value; if(!id){$("#catPreview").textContent="Ingresa un ID"; return;} const cats=await readJSON("cats/cat.json");
+  const found=(cats||[]).find(c=>c.id===id); if(found){$("#catName").value=found.name||""; $("#catDesc").value=found.description||""; $("#catImg").value=found.imgSrc||""; $("#catPreview").textContent=`ID ${id} → ${found.name} (${found.productCount||0} productos)`;} else {$("#catPreview").textContent="No existe esa categoría (se creará)";}}catch(e){$("#catPreview").textContent="Error leyendo cats/cat.json";}};
+$("#saveCat").onclick=async()=>{const payload={id:+$("#catId").value,name:$("#catName").value.trim(),description:$("#catDesc").value.trim(),imgSrc:$("#catImg").value.trim()}; $("#catStatus").textContent="Guardando…";
+  const r=await fetch("/.netlify/functions/upsertCategory",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(payload)}); $("#catStatus").textContent=r.ok?"OK":("Error "+r.status+" "+(await r.text()));};
+$("#deleteCat").onclick=async()=>{const id=+$("#catId").value; const cascade=$("#cascadeCat").checked; if(!id){$("#catStatus").textContent="Ingresa ID"; return;}
+  if(!confirm(`¿Eliminar categoría ${id}${cascade?" y todos sus productos":""}? Esta acción no se puede deshacer.`)) return;
+  $("#catStatus").textContent="Eliminando…"; const r=await fetch("/.netlify/functions/deleteCategory",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({id,cascade})});
+  $("#catStatus").textContent=r.ok?"Categoría eliminada":("Error "+r.status+" "+(await r.text()));};
+$("#loadProd").onclick=async()=>{const pid=+$("#pId").value; const catId=+$("#pCatId").value; $("#prodPreview").textContent="Leyendo…";
+  try{if(pid){try{const prod=await readJSON(`products/${pid}.json`); $("#pName").value=prod.name||""; $("#pDesc").value=prod.description||""; $("#pCost").value=prod.cost??""; $("#pSold").value=prod.soldCount??0; $("#pCurr").value=prod.currency||"UYU"; $("#pImg").value=(prod.images&&prod.images[0])||""; $("#pImgs").value=(prod.images||[]).slice(1).join(", "); if(prod.category){$("#pCatId").value=prod.category.id; $("#pCatName").value=prod.category.name||"";} $("#prodPreview").textContent=`Producto ${pid} → ${prod.name}`; return;}catch(_e){}}
+    if(catId){const catp=await readJSON(`cats_products/${catId}.json`); $("#pCatName").value=catp.catName||$("#pCatName").value; if(pid&&Array.isArray(catp.products)){const comp=catp.products.find(x=>x.id===pid);
+      if(comp){$("#pName").value=comp.name||""; $("#pDesc").value=comp.description||""; $("#pCost").value=comp.cost??""; $("#pSold").value=comp.soldCount??0; $("#pCurr").value=comp.currency||"UYU"; $("#pImg").value=comp.image||""; $("#prodPreview").textContent=`Producto ${pid} (cat ${catId}) → ${comp.name}`; return;}}
+      $("#prodPreview").textContent=`Categoría ${catId} → ${catp.catName}. Producto nuevo.`;} else {$("#prodPreview").textContent="Ingresa al menos ID de producto o categoría";}} catch(e){$("#prodPreview").textContent="No se pudo leer JSON ("+e+")";}};
+$("#saveProd").onclick=async()=>{const payload={op:"upsert",product:{id:+$("#pId").value,name:$("#pName").value.trim(),description:$("#pDesc").value.trim(),cost:+$("#pCost").value,currency:($("#pCurr").value||"UYU").trim(),soldCount:+$("#pSold").value||0,image:$("#pImg").value.trim(),images:($("#pImgs").value||"").split(",").map(s=>s.trim()).filter(Boolean),categoryId:+$("#pCatId").value,categoryName:$("#pCatName").value.trim()}}; $("#pStatus").textContent="Guardando…";
+  const r=await fetch("/.netlify/functions/upsertProduct",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(payload)}); $("#pStatus").textContent=r.ok?"OK":("Error "+r.status+" "+(await r.text()));};
+$("#deleteProd").onclick=async()=>{const id=+$("#pId").value; const categoryId=+$("#pCatId").value||undefined; if(!id){$("#pStatus").textContent="Ingresa product ID"; return;}
+  if(!confirm(`¿Eliminar producto ${id}? Esta acción no se puede deshacer.`)) return; $("#pStatus").textContent="Eliminando…";
+  const r=await fetch("/.netlify/functions/deleteProduct",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({id,categoryId})});
+  $("#pStatus").textContent=r.ok?"Producto eliminado":("Error "+r.status+" "+(await r.text()));};
+</script></body></html>
