@@ -1,0 +1,8 @@
+{
+  "name": "diy-api-admin",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "octokit": "^4.0.0"
+  }
+}
