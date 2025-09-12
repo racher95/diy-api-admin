@@ -49,13 +49,13 @@ async function uploadMultipleImages(files, folder = "images/products") {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ folder, filename, dataUrl }),
       });
-      
+
       if (!r.ok) {
         const errorText = await r.text();
         console.error(`Error HTTP ${r.status}:`, errorText);
         throw new Error(`HTTP ${r.status}: ${errorText}`);
       }
-      
+
       const result = await r.json();
       if (result.ok) {
         results.push(result.url);
@@ -185,7 +185,7 @@ document.addEventListener("DOMContentLoaded", function () {
     }
 
     $("#catStatus").textContent = "Subiendo imagen...";
-    
+
     try {
       const urls = await uploadMultipleImages([file], "images/cats");
 
@@ -294,7 +294,7 @@ document.addEventListener("DOMContentLoaded", function () {
     }
 
     $("#pStatus").textContent = `Subiendo ${files.length} imagen(es)...`;
-    
+
     try {
       const urls = await uploadMultipleImages(files, "images/products");
 
@@ -302,7 +302,9 @@ document.addEventListener("DOMContentLoaded", function () {
         productImageUrls = [...productImageUrls, ...urls];
         showImagePreview(productImageUrls, "#prodImagePreview", true);
         updateProductUrlInputs();
-        $("#pStatus").textContent = `${urls.length} imagen(es) subida(s) correctamente`;
+        $(
+          "#pStatus"
+        ).textContent = `${urls.length} imagen(es) subida(s) correctamente`;
       } else {
         $("#pStatus").textContent = "No se pudo subir ninguna imagen";
       }
@@ -332,6 +334,36 @@ document.addEventListener("DOMContentLoaded", function () {
             $("#pCatId").value = prod.category.id;
             $("#pCatName").value = prod.category.name || "";
           }
+
+          // Cargar nuevos campos
+          $("#pFeatured").checked = prod.featured || false;
+          $("#pStock").value = prod.stock ?? 50;
+          $("#pLowStock").checked = prod.lowStock || false;
+
+          // Flash Sale
+          if (prod.flashSale) {
+            $("#pFlashActive").checked = prod.flashSale.active || false;
+            $("#pFlashPrice").value = prod.flashSale.price || "";
+            $("#pFlashStart").value = prod.flashSale.startsAt
+              ? new Date(prod.flashSale.startsAt).toISOString().slice(0, 16)
+              : "";
+            $("#pFlashEnd").value = prod.flashSale.endsAt
+              ? new Date(prod.flashSale.endsAt).toISOString().slice(0, 16)
+              : "";
+
+            // Mostrar/ocultar campos de flash sale
+            const flashFields = $("#flashSaleFields");
+            if (prod.flashSale.active) {
+              flashFields.style.display = "block";
+            }
+          } else {
+            $("#pFlashActive").checked = false;
+            $("#pFlashPrice").value = "";
+            $("#pFlashStart").value = "";
+            $("#pFlashEnd").value = "";
+            $("#flashSaleFields").style.display = "none";
+          }
+
           $("#prodPreview").textContent = `Producto ${pid} → ${prod.name}`;
 
           // Mostrar imágenes si existen
@@ -392,19 +424,103 @@ document.addEventListener("DOMContentLoaded", function () {
           ].filter(Boolean);
     const mainImage = imageUrls[0] || "";
 
+    // Validaciones robustas
+    const validationErrors = [];
+
+    // Campos requeridos
+    if (!$("#pId").value) validationErrors.push("ID de producto es requerido");
+    if (!$("#pName").value.trim()) validationErrors.push("Nombre es requerido");
+    if (!$("#pCost").value || +$("#pCost").value <= 0)
+      validationErrors.push("Precio debe ser mayor a 0");
+    if (!$("#pCatId").value)
+      validationErrors.push("ID de categoría es requerido");
+    if (!$("#pCatName").value.trim())
+      validationErrors.push("Nombre de categoría es requerido");
+    if (!mainImage) validationErrors.push("Al menos una imagen es requerida");
+
+    // Validaciones de precios
+    const cost = +$("#pCost").value;
+    const flashPrice = $("#pFlashPrice").value
+      ? +$("#pFlashPrice").value
+      : null;
+
+    if ($("#pFlashActive").checked) {
+      if (!flashPrice || flashPrice <= 0) {
+        validationErrors.push(
+          "Precio de oferta flash es requerido cuando está activa"
+        );
+      } else if (flashPrice >= cost) {
+        validationErrors.push(
+          "Precio de oferta debe ser menor al precio principal"
+        );
+      }
+
+      const startDate = $("#pFlashStart").value;
+      const endDate = $("#pFlashEnd").value;
+
+      if (!startDate || !endDate) {
+        validationErrors.push(
+          "Fechas de inicio y fin son requeridas para ofertas flash"
+        );
+      } else {
+        const start = new Date(startDate);
+        const end = new Date(endDate);
+        if (start >= end) {
+          validationErrors.push(
+            "Fecha de inicio debe ser anterior a fecha de fin"
+          );
+        }
+        if (end <= new Date()) {
+          validationErrors.push("Fecha de fin debe ser en el futuro");
+        }
+      }
+    }
+
+    // Validaciones de stock
+    const stock = +$("#pStock").value;
+    if (stock < 0) {
+      validationErrors.push("Stock no puede ser negativo");
+    }
+
+    // Mostrar errores si los hay
+    if (validationErrors.length > 0) {
+      $(
+        "#pStatus"
+      ).innerHTML = `<span style="color: red;">❌ Errores:<br>• ${validationErrors.join(
+        "<br>• "
+      )}</span>`;
+      return;
+    }
+
     const payload = {
       op: "upsert",
       product: {
         id: +$("#pId").value,
         name: $("#pName").value.trim(),
         description: $("#pDesc").value.trim(),
-        cost: +$("#pCost").value,
+        cost: cost,
         currency: ($("#pCurr").value || "UYU").trim(),
         soldCount: +$("#pSold").value || 0,
         image: mainImage,
         images: imageUrls,
         categoryId: +$("#pCatId").value,
         categoryName: $("#pCatName").value.trim(),
+
+        // Campos adicionales
+        featured: $("#pFeatured").checked,
+        stock: +$("#pStock").value || 50,
+        lowStock: $("#pLowStock").checked,
+        flashSale: {
+          active: $("#pFlashActive").checked,
+          price: $("#pFlashPrice").value ? +$("#pFlashPrice").value : null,
+          startsAt: $("#pFlashStart").value
+            ? new Date($("#pFlashStart").value).toISOString()
+            : null,
+          endsAt: $("#pFlashEnd").value
+            ? new Date($("#pFlashEnd").value).toISOString()
+            : null,
+        },
+        updatedAt: new Date().toISOString(),
       },
     };
     $("#pStatus").textContent = "Guardando…";
@@ -437,4 +553,50 @@ document.addEventListener("DOMContentLoaded", function () {
       ? "Producto eliminado"
       : "Error " + r.status + " " + (await r.text());
   };
+
+  // Funcionalidad para toggle de flash sale
+  $("#pFlashActive").onchange = function () {
+    const flashFields = $("#flashSaleFields");
+    if (this.checked) {
+      flashFields.style.display = "block";
+      flashFields.classList.add("show");
+    } else {
+      flashFields.style.display = "none";
+      flashFields.classList.remove("show");
+      // Limpiar campos cuando se desactiva
+      $("#pFlashPrice").value = "";
+      $("#pFlashStart").value = "";
+      $("#pFlashEnd").value = "";
+    }
+  };
+
+  // Funcionalidad para reset de formulario
+  function resetForm() {
+    // Limpiar campos básicos
+    $("#pId").value = "";
+    $("#pName").value = "";
+    $("#pDesc").value = "";
+    $("#pCost").value = "";
+    $("#pImg").value = "";
+    $("#pImgs").value = "";
+    $("#pCatId").value = "";
+    $("#pCatName").value = "";
+    $("#pStatus").innerHTML = "";
+
+    // Limpiar campos de promoción
+    $("#pFeatured").checked = false;
+    $("#pFlashActive").checked = false;
+    $("#pFlashPrice").value = "";
+    $("#pFlashStart").value = "";
+    $("#pFlashEnd").value = "";
+    $("#pStock").value = "";
+    $("#pLowStock").checked = false;
+
+    // Limpiar imágenes cargadas
+    productImageUrls = [];
+    $("#prodImagePreview").innerHTML = "";
+
+    // Ocultar campos de flash sale
+    toggleFlashSaleFields();
+  }
 });

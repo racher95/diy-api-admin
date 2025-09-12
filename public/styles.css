@@ -13,10 +13,6 @@ h1 {
   margin-bottom: 4px;
 }
 
-.muted {
-  color: #666;
-}
-
 /* Estructura de formularios */
 fieldset {
   border: 1px solid #ddd;
@@ -172,6 +168,102 @@ button:hover {
   opacity: 0.9;
 }
 
+/* Estilos para campos de productos */
+
+/* Secciones de productos */
+.product-features {
+  border: 2px solid #e3f2fd;
+  background: #f8f9fa;
+  margin: 1rem 0;
+}
+
+.product-features legend {
+  background: #2196f3;
+  color: white;
+  padding: 0.5rem 1rem;
+  border-radius: 4px;
+  font-weight: bold;
+}
+
+.stock-section {
+  border: 2px solid #fff3e0;
+  background: #fafafa;
+  margin: 1rem 0;
+}
+
+.stock-section legend {
+  background: #ff9800;
+  color: white;
+  padding: 0.5rem 1rem;
+  border-radius: 4px;
+  font-weight: bold;
+}
+
+.flash-sale-section {
+  border: 1px solid #ffcdd2;
+  background: #fff8e1;
+  margin: 1rem 0;
+  padding: 1rem;
+}
+
+.flash-sale-section legend {
+  background: #f44336;
+  color: white;
+  padding: 0.3rem 0.8rem;
+  border-radius: 4px;
+  font-size: 0.9rem;
+}
+
+/* Checkboxes mejorados */
+.checkbox-label {
+  display: flex !important;
+  align-items: center;
+  gap: 0.5rem;
+  margin: 0.5rem 0;
+  cursor: pointer;
+}
+
+.checkbox-label input[type="checkbox"] {
+  width: auto !important;
+  margin: 0;
+  transform: scale(1.2);
+}
+
+.checkbox-text {
+  font-weight: 600;
+  color: #333;
+}
+
+.feature-row {
+  margin: 1rem 0;
+}
+
+/* Flash sale fields con animación */
+.flash-sale-fields {
+  border: 1px solid #ffeb3b;
+  background: #fffde7;
+  padding: 1rem;
+  border-radius: 4px;
+  margin-top: 0.5rem;
+  transition: all 0.3s ease;
+}
+
+.flash-sale-fields.show {
+  display: block !important;
+  animation: slideDown 0.3s ease;
+}
+
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    max-height: 0;
+  }
+  to {
+    opacity: 1;
+    max-height: 200px;
+  }
+}
+
 /* Estilos responsivos */
 @media (max-width: 768px) {
   .row,
@@ -186,5 +278,14 @@ button:hover {
 
   .image-grid {
     grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+  }
+
+  .product-features,
+  .stock-section {
+    margin: 0.5rem 0;
+  }
+
+  .flash-sale-fields {
+    padding: 0.5rem;
   }
 }

@@ -2,12 +2,12 @@
 <html lang="es">
   <head>
     <meta charset="utf-8" />
-    <title>DIY API Admin (v3)</title>
+    <title>DIY API Admin</title>
     <meta name="viewport" content="width=device-width,initial-scale=1" />
     <link rel="stylesheet" href="styles.css" />
   </head>
   <body>
-    <h1>DIY API Admin <span class="muted">(v3 con eliminar)</span></h1>
+    <h1>DIY API Admin</h1>
     <fieldset>
       <legend>0) Conectar con tu API</legend>
       <label
@@ -134,6 +134,76 @@
         </div>
         <div id="prodImagePreview" class="image-grid"></div>
       </div>
+
+      <!-- Campos para destacados y ofertas -->
+      <fieldset class="product-features">
+        <legend>⭐ Destacado y Ofertas</legend>
+        <div class="feature-row">
+          <label class="checkbox-label">
+            <input type="checkbox" id="pFeatured" />
+            <span class="checkbox-text">⭐ Producto Destacado</span>
+          </label>
+        </div>
+
+        <fieldset class="flash-sale-section">
+          <legend>🔥 Oferta Flash</legend>
+          <div class="feature-row">
+            <label class="checkbox-label">
+              <input type="checkbox" id="pFlashActive" />
+              <span class="checkbox-text">Activar oferta flash</span>
+            </label>
+          </div>
+
+          <div
+            class="flash-sale-fields"
+            id="flashSaleFields"
+            style="display: none"
+          >
+            <div class="row">
+              <label>
+                Precio de Oferta Flash
+                <input
+                  id="pFlashPrice"
+                  type="number"
+                  placeholder="Precio especial durante la oferta"
+                />
+              </label>
+            </div>
+            <div class="row">
+              <label>
+                Fecha de Inicio
+                <input id="pFlashStart" type="datetime-local" />
+              </label>
+              <label>
+                Fecha de Fin
+                <input id="pFlashEnd" type="datetime-local" />
+              </label>
+            </div>
+          </div>
+        </fieldset>
+      </fieldset>
+
+      <!-- Campos decorativos de stock -->
+      <fieldset class="stock-section">
+        <legend>📦 Stock (Decorativo)</legend>
+        <div class="row">
+          <label>
+            Stock Disponible
+            <input
+              id="pStock"
+              type="number"
+              value="50"
+              min="0"
+              placeholder="Cantidad ficticia"
+            />
+          </label>
+          <label class="checkbox-label">
+            <input type="checkbox" id="pLowStock" />
+            <span class="checkbox-text">⚠️ Stock Bajo (últimas unidades)</span>
+          </label>
+        </div>
+      </fieldset>
+
       <div class="row">
         <label
           >Vendidos (soldCount)
