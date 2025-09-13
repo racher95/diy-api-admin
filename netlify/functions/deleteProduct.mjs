@@ -107,10 +107,10 @@ export async function handler(event) {
   }
 }
 
-// Función para regenerar featured.json y flash_sales.json tras eliminar
+// Función para regenerar featured.json y hot_sales.json tras eliminar
 async function regenerateDerivedIndices() {
   try {
-    // Leer todas las categorías
+    // Leer todas las categorías para obtener todos los productos
     const catsResponse = await readJSON("cats/cat.json");
     const categories = catsResponse.json || [];
 
@@ -125,7 +125,7 @@ async function regenerateDerivedIndices() {
         );
         const catProducts = catProductsResponse.json?.products || [];
 
-        // Para cada producto, leer su detalle completo
+        // Para cada producto, leer su detalle completo para garantizar consistencia
         for (const product of catProducts) {
           try {
             const detailResponse = await readJSON(
@@ -135,67 +135,87 @@ async function regenerateDerivedIndices() {
 
             if (!detail) continue;
 
+            // Crear objeto con datos completos para garantizar consistencia
+            const fullProductData = {
+              id: detail.id,
+              name: detail.name,
+              description: detail.description,
+              cost: detail.cost,
+              currency: detail.currency,
+              soldCount: detail.soldCount,
+              image: detail.images?.[0] || detail.image || product.image,
+              category: detail.category,
+              // Incluir TODOS los datos especiales para consistencia total
+              featured: detail.featured || false,
+              stock: detail.stock || 50,
+              lowStock: detail.lowStock || false,
+              flashSale: detail.flashSale || { active: false },
+              updatedAt: detail.updatedAt,
+            };
+
             // Agregar a featured si corresponde
             if (detail.featured) {
-              allFeatured.push({
-                id: detail.id,
-                name: detail.name,
-                description: detail.description,
-                cost: detail.cost,
-                currency: detail.currency,
-                soldCount: detail.soldCount,
-                image: detail.images?.[0] || detail.image || product.image,
-                category: detail.category,
-                listPrice: detail.listPrice,
-                stock: detail.stock,
-                lowStock: detail.lowStock,
-                updatedAt: detail.updatedAt,
-              });
+              allFeatured.push(fullProductData);
             }
 
-            // Agregar a flash sales si corresponde
+            // Agregar a flash sales si está activo y no ha expirado
             if (detail.flashSale?.active) {
-              allFlashSales.push({
-                id: detail.id,
-                name: detail.name,
-                description: detail.description,
-                originalPrice: detail.cost,
-                flashPrice: detail.flashSale.price,
-                savings: detail.cost - (detail.flashSale.price || 0),
-                currency: detail.currency,
-                soldCount: detail.soldCount,
-                image: detail.images?.[0] || detail.image || product.image,
-                category: detail.category,
-                flashSale: detail.flashSale,
-                stock: detail.stock,
-                lowStock: detail.lowStock,
-                updatedAt: detail.updatedAt,
-              });
+              const now = new Date();
+              const startDate = new Date(detail.flashSale.startsAt);
+              const endDate = new Date(detail.flashSale.endsAt);
+
+              if (now >= startDate && now <= endDate) {
+                // Añadir datos específicos de flash sale
+                const flashSaleData = {
+                  ...fullProductData,
+                  flashPrice: detail.flashSale.price,
+                  discount: Math.round(
+                    ((detail.cost - detail.flashSale.price) / detail.cost) * 100
+                  ),
+                };
+                allFlashSales.push(flashSaleData);
+              }
             }
-          } catch (e) {
-            console.warn(`Error reading product ${product.id}:`, e);
+          } catch (productError) {
+            console.error(`Error reading product ${product.id}:`, productError);
           }
         }
-      } catch (e) {
-        console.warn(`Error reading category ${cat.id}:`, e);
+      } catch (catError) {
+        console.error(`Error reading category ${cat.id}:`, catError);
       }
     }
 
-    // Escribir índices derivados
-    const featuredResponse = await readJSON("products/featured.json");
+    // Crear estructura de categoría para Destacados
+    const featuredCategory = {
+      catName: "Destacados",
+      imgSrc: "images/cats/featured.jpg",
+      description: "Nuestros productos más populares y recomendados",
+      products: allFeatured,
+    };
+
+    // Crear estructura de categoría para Hot Sales
+    const hotSalesCategory = {
+      catName: "Hot Sales!",
+      imgSrc: "images/cats/hot_sales.jpg",
+      description: "Ofertas por tiempo limitado - ¡No te las pierdas!",
+      products: allFlashSales,
+    };
+
+    // Guardar en nueva ubicación: /cats/ en lugar de /products/
+    const featuredResponse = await readJSON("cats/featured.json");
     await writeJSON(
-      "products/featured.json",
-      allFeatured,
+      "cats/featured.json",
+      featuredCategory,
       featuredResponse.sha,
-      "UPDATE featured products index after deletion"
+      "UPDATE featured products category after deletion"
     );
 
-    const flashResponse = await readJSON("products/flash_sales.json");
+    const flashResponse = await readJSON("cats/hot_sales.json");
     await writeJSON(
-      "products/flash_sales.json",
-      allFlashSales,
+      "cats/hot_sales.json",
+      hotSalesCategory,
       flashResponse.sha,
-      "UPDATE flash sales index after deletion"
+      "UPDATE hot sales category after deletion"
     );
   } catch (e) {
     console.error("Error regenerating derived indices:", e);
