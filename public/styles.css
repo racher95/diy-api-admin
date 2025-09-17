@@ -289,3 +289,159 @@ button:hover {
     padding: 0.5rem;
   }
 }
+
+/* === PRODUCTOS RELACIONADOS === */
+.related-products-section {
+  background: #f8f9fa;
+  border-color: #e9ecef;
+}
+
+.related-products-search {
+  margin-bottom: 1rem;
+}
+
+.search-results {
+  max-height: 300px;
+  overflow-y: auto;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  background: white;
+  margin-top: 0.5rem;
+  display: none;
+}
+
+.search-results.show {
+  display: block;
+}
+
+.search-result-item {
+  padding: 12px;
+  border-bottom: 1px solid #eee;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  transition: background-color 0.2s;
+}
+
+.search-result-item:hover {
+  background-color: #f5f5f5;
+}
+
+.search-result-item:last-child {
+  border-bottom: none;
+}
+
+.search-result-image {
+  width: 50px;
+  height: 50px;
+  object-fit: cover;
+  border-radius: 4px;
+  border: 1px solid #ddd;
+}
+
+.search-result-info {
+  flex: 1;
+}
+
+.search-result-name {
+  font-weight: 600;
+  margin: 0 0 4px 0;
+  color: #333;
+}
+
+.search-result-meta {
+  font-size: 0.85em;
+  color: #666;
+  margin: 0;
+}
+
+.search-result-price {
+  font-weight: 600;
+  color: #2196f3;
+}
+
+.selected-related-products {
+  min-height: 60px;
+  border: 1px dashed #ddd;
+  border-radius: 6px;
+  padding: 12px;
+}
+
+.empty-state {
+  text-align: center;
+  color: #999;
+  font-style: italic;
+  margin: 20px 0;
+}
+
+.related-product-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px;
+  background: white;
+  border: 1px solid #e9ecef;
+  border-radius: 6px;
+  margin-bottom: 8px;
+}
+
+.related-product-image {
+  width: 60px;
+  height: 60px;
+  object-fit: cover;
+  border-radius: 4px;
+  border: 1px solid #ddd;
+}
+
+.related-product-info {
+  flex: 1;
+}
+
+.related-product-name {
+  font-weight: 600;
+  margin: 0 0 4px 0;
+  color: #333;
+}
+
+.related-product-meta {
+  font-size: 0.85em;
+  color: #666;
+  margin: 0;
+}
+
+.remove-related-btn {
+  background: #dc3545;
+  color: white;
+  border: none;
+  padding: 6px 12px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.85em;
+  transition: background-color 0.2s;
+  width: auto;
+}
+
+.remove-related-btn:hover {
+  background: #c82333;
+}
+
+.related-products-count {
+  font-size: 0.9em;
+  color: #666;
+  margin-bottom: 0.5rem;
+}
+
+/* Loading state para búsqueda */
+.search-loading {
+  padding: 20px;
+  text-align: center;
+  color: #666;
+  font-style: italic;
+}
+
+.search-no-results {
+  padding: 20px;
+  text-align: center;
+  color: #999;
+}

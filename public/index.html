@@ -204,6 +204,28 @@
         </div>
       </fieldset>
 
+      <!-- Productos Relacionados -->
+      <fieldset class="related-products-section">
+        <legend>🔗 Productos Relacionados</legend>
+        <div class="related-products-search">
+          <label>
+            Buscar productos para agregar
+            <input 
+              id="relatedSearch" 
+              type="text" 
+              placeholder="Buscar productos por nombre, descripción o categoría..."
+            />
+          </label>
+          <div id="searchResults" class="search-results"></div>
+        </div>
+        <div class="related-products-list">
+          <h4>Productos relacionados seleccionados:</h4>
+          <div id="selectedRelated" class="selected-related-products">
+            <p class="empty-state">No hay productos relacionados seleccionados</p>
+          </div>
+        </div>
+      </fieldset>
+
       <div class="row">
         <label
           >Vendidos (soldCount)

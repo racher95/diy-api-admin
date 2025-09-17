@@ -9,6 +9,10 @@ const apiDetected = $("#apiDetected");
 let categoryImageUrl = "";
 let productImageUrls = [];
 
+// Variables para productos relacionados
+let selectedRelatedProducts = [];
+let searchTimeout = null;
+
 // Funciones de utilidad
 function getApi() {
   return (localStorage.getItem("DIY_API_BASE") || "").trim();
@@ -109,6 +113,129 @@ function updateProductUrlInputs() {
     $("#pImg").value = "";
     $("#pImgs").value = "";
   }
+}
+
+// === FUNCIONES PARA PRODUCTOS RELACIONADOS ===
+
+// Buscar productos en la API
+async function searchProducts(query, excludeId = null) {
+  if (!query.trim()) return [];
+  
+  try {
+    const params = new URLSearchParams({
+      q: query,
+      limit: 10
+    });
+    
+    if (excludeId) {
+      params.append('exclude', excludeId);
+    }
+    
+    const response = await fetch(`/.netlify/functions/searchProducts?${params}`);
+    if (!response.ok) throw new Error('Error en búsqueda');
+    
+    const data = await response.json();
+    return data.products || [];
+  } catch (error) {
+    console.error('Error buscando productos:', error);
+    return [];
+  }
+}
+
+// Renderizar resultados de búsqueda
+function renderSearchResults(products) {
+  const resultsContainer = $('#searchResults');
+  
+  if (products.length === 0) {
+    resultsContainer.innerHTML = '<div class="search-no-results">No se encontraron productos</div>';
+    resultsContainer.classList.add('show');
+    return;
+  }
+  
+  const html = products.map(product => `
+    <div class="search-result-item" data-product-id="${product.id}">
+      <img src="${product.image}" alt="${product.name}" class="search-result-image" onerror="this.src='data:image/svg+xml,<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"50\" height=\"50\" viewBox=\"0 0 24 24\" fill=\"%23ddd\"><rect width=\"24\" height=\"24\" fill=\"%23f5f5f5\"/><text x=\"12\" y=\"12\" text-anchor=\"middle\" dominant-baseline=\"middle\" font-size=\"10\" fill=\"%23999\">IMG</text></svg>'">
+      <div class="search-result-info">
+        <h4 class="search-result-name">${product.name}</h4>
+        <p class="search-result-meta">${product.category} • <span class="search-result-price">$${product.cost.toLocaleString()} ${product.currency}</span></p>
+      </div>
+    </div>
+  `).join('');
+  
+  resultsContainer.innerHTML = html;
+  resultsContainer.classList.add('show');
+  
+  // Agregar event listeners
+  resultsContainer.querySelectorAll('.search-result-item').forEach(item => {
+    item.addEventListener('click', () => {
+      const productId = parseInt(item.dataset.productId);
+      const product = products.find(p => p.id === productId);
+      if (product) {
+        addRelatedProduct(product);
+      }
+    });
+  });
+}
+
+// Agregar producto a la lista de relacionados
+function addRelatedProduct(product) {
+  // Verificar que no esté ya seleccionado
+  if (selectedRelatedProducts.find(p => p.id === product.id)) {
+    alert('Este producto ya está en la lista de relacionados');
+    return;
+  }
+  
+  // Verificar que no sea el mismo producto que estamos editando
+  const currentProductId = parseInt($('#pId').value);
+  if (currentProductId && product.id === currentProductId) {
+    alert('No puedes agregar el mismo producto como relacionado');
+    return;
+  }
+  
+  selectedRelatedProducts.push(product);
+  renderSelectedRelatedProducts();
+  
+  // Limpiar búsqueda
+  $('#relatedSearch').value = '';
+  $('#searchResults').classList.remove('show');
+}
+
+// Remover producto de la lista de relacionados
+function removeRelatedProduct(productId) {
+  selectedRelatedProducts = selectedRelatedProducts.filter(p => p.id !== productId);
+  renderSelectedRelatedProducts();
+}
+
+// Renderizar lista de productos relacionados seleccionados
+function renderSelectedRelatedProducts() {
+  const container = $('#selectedRelated');
+  
+  if (selectedRelatedProducts.length === 0) {
+    container.innerHTML = '<p class="empty-state">No hay productos relacionados seleccionados</p>';
+    return;
+  }
+  
+  const html = `
+    <div class="related-products-count">${selectedRelatedProducts.length} producto(s) relacionado(s)</div>
+    ${selectedRelatedProducts.map(product => `
+      <div class="related-product-item">
+        <img src="${product.image}" alt="${product.name}" class="related-product-image" onerror="this.src='data:image/svg+xml,<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"60\" height=\"60\" viewBox=\"0 0 24 24\" fill=\"%23ddd\"><rect width=\"24\" height=\"24\" fill=\"%23f5f5f5\"/><text x=\"12\" y=\"12\" text-anchor=\"middle\" dominant-baseline=\"middle\" font-size=\"10\" fill=\"%23999\">IMG</text></svg>'">
+        <div class="related-product-info">
+          <h4 class="related-product-name">${product.name}</h4>
+          <p class="related-product-meta">${product.category} • $${product.cost.toLocaleString()} ${product.currency}</p>
+        </div>
+        <button type="button" class="remove-related-btn" onclick="removeRelatedProduct(${product.id})">Remover</button>
+      </div>
+    `).join('')}
+  `;
+  
+  container.innerHTML = html;
+}
+
+// Cargar productos relacionados desde datos existentes
+function loadRelatedProducts(relatedProducts) {
+  selectedRelatedProducts = relatedProducts || [];
+  renderSelectedRelatedProducts();
 }
 
 // Inicialización cuando se carga el DOM
@@ -371,6 +498,10 @@ document.addEventListener("DOMContentLoaded", function () {
             productImageUrls = [...prod.images];
             showImagePreview(productImageUrls, "#prodImagePreview", true);
           }
+
+          // Cargar productos relacionados
+          loadRelatedProducts(prod.relatedProducts || []);
+
           return;
         } catch (_e) {}
       }
@@ -522,6 +653,7 @@ document.addEventListener("DOMContentLoaded", function () {
         },
         updatedAt: new Date().toISOString(),
       },
+      relatedProductIds: selectedRelatedProducts.map(p => p.id),
     };
     $("#pStatus").textContent = "Guardando…";
     const r = await fetch("/.netlify/functions/upsertProduct", {
@@ -596,7 +728,28 @@ document.addEventListener("DOMContentLoaded", function () {
     productImageUrls = [];
     $("#prodImagePreview").innerHTML = "";
 
+    // Limpiar productos relacionados
+    selectedRelatedProducts = [];
+    $("#selectedRelatedProducts").innerHTML = "";
+
     // Ocultar campos de flash sale
     toggleFlashSaleFields();
+  }
+
+  // Event listeners para productos relacionados
+  const relatedSearchInput = $("#relatedProductsSearch");
+  if (relatedSearchInput) {
+    relatedSearchInput.addEventListener("input", (e) => {
+      clearTimeout(searchTimeout);
+      const query = e.target.value.trim();
+      
+      if (query.length >= 2) {
+        searchTimeout = setTimeout(() => {
+          searchProducts(query);
+        }, 300);
+      } else {
+        $("#searchResults").innerHTML = "";
+      }
+    });
   }
 });

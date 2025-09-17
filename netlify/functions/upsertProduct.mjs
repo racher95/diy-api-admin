@@ -32,6 +32,7 @@ export async function handler(event) {
         startsAt: null,
         endsAt: null,
       },
+      relatedProductIds = [], // Nuevo campo para IDs de productos relacionados
       updatedAt = new Date().toISOString(),
     } = product;
 
@@ -46,7 +47,10 @@ export async function handler(event) {
       return { statusCode: 400, body: "missing required product fields" };
     }
 
-    // 1. Guardar detalle completo del producto
+    // 1. Resolver productos relacionados con datos completos
+    const relatedProducts = await resolveRelatedProducts(relatedProductIds);
+
+    // 2. Guardar detalle completo del producto
     const pPath = `products/${id}.json`;
     const curP = await readJSON(pPath);
     const detail = {
@@ -58,7 +62,7 @@ export async function handler(event) {
       soldCount,
       category: { id: categoryId, name: categoryName },
       images: images.length ? images : [image],
-      relatedProducts: curP.json?.relatedProducts || [],
+      relatedProducts,
       // Campos adicionales
       featured,
       stock,
@@ -74,7 +78,7 @@ export async function handler(event) {
       `${op.toUpperCase()} product ${id}`
     );
 
-    // 2. Actualizar resumen en cats_products
+    // 3. Actualizar resumen en cats_products
     const cpPath = `cats_products/${categoryId}.json`;
     const curCP = await readJSON(cpPath);
     const payload = curCP.json || {
@@ -95,7 +99,7 @@ export async function handler(event) {
       `${op.toUpperCase()} product in category ${categoryId}`
     );
 
-    // 3. Actualizar contador de categorías
+    // 4. Actualizar contador de categorías
     const cPath = "cats/cat.json";
     const curC = await readJSON(cPath);
     let cats = curC.json || [];
@@ -133,6 +137,40 @@ export async function handler(event) {
     console.error("Error in upsertProduct:", e);
     return { statusCode: 500, body: String(e) };
   }
+}
+
+// Función para resolver productos relacionados con datos completos
+async function resolveRelatedProducts(relatedProductIds) {
+  if (!Array.isArray(relatedProductIds) || relatedProductIds.length === 0) {
+    return [];
+  }
+
+  const relatedProducts = [];
+
+  for (const productId of relatedProductIds) {
+    try {
+      const productResponse = await readJSON(`products/${productId}.json`);
+      if (productResponse.json) {
+        const product = productResponse.json;
+        relatedProducts.push({
+          id: product.id,
+          name: product.name,
+          image: product.images?.[0] || product.image || "",
+          cost: product.cost,
+          currency: product.currency || "UYU",
+          category: product.category?.name || product.category || "",
+          featured: product.featured || false,
+          stock: product.stock || 0,
+          addedAt: new Date().toISOString()
+        });
+      }
+    } catch (error) {
+      console.warn(`No se pudo resolver producto relacionado ${productId}:`, error);
+      // Continuar con los demás productos relacionados
+    }
+  }
+
+  return relatedProducts;
 }
 
 // Función para generar featured.json y hot_sales.json
