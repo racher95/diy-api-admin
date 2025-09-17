@@ -118,56 +118,93 @@ function updateProductUrlInputs() {
 // === FUNCIONES PARA PRODUCTOS RELACIONADOS ===
 
 // Buscar productos en la API
-async function searchProducts(query, excludeId = null) {
-  if (!query.trim()) return [];
+// Buscar productos relacionados
+async function searchProducts(query) {
+  console.log('Buscando productos con query:', query);
+  
+  // Detectar si es búsqueda por ID
+  const isIdSearch = /^\d+$/.test(query.trim());
+  const searchType = isIdSearch ? 'ID' : 'texto';
+  console.log(`Tipo de búsqueda: ${searchType}`);
   
   try {
-    const params = new URLSearchParams({
-      q: query,
-      limit: 10
+    const currentProductId = parseInt($('#pId').value) || 0;
+    const excludeIds = [currentProductId, ...selectedRelatedProducts.map(p => p.id)];
+    
+    const response = await fetch('/.netlify/functions/searchProducts', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        query: query,
+        exclude: excludeIds,
+        limit: isIdSearch ? 5 : 10  // Menos resultados para búsqueda por ID
+      })
     });
     
-    if (excludeId) {
-      params.append('exclude', excludeId);
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
     }
     
-    const response = await fetch(`/.netlify/functions/searchProducts?${params}`);
-    if (!response.ok) throw new Error('Error en búsqueda');
+    const result = await response.json();
+    console.log('Resultados de búsqueda:', result);
     
-    const data = await response.json();
-    return data.products || [];
+    if (result.success) {
+      renderSearchResults(result.products, { query, isIdSearch });
+    } else {
+      console.error('Error en searchProducts:', result.error);
+      renderSearchResults([]);
+    }
   } catch (error) {
     console.error('Error buscando productos:', error);
-    return [];
+    renderSearchResults([]);
   }
 }
 
 // Renderizar resultados de búsqueda
-function renderSearchResults(products) {
+function renderSearchResults(products, searchInfo = {}) {
+  console.log('Renderizando resultados:', products);
   const resultsContainer = $('#searchResults');
   
+  if (!resultsContainer) {
+    console.error('No se encontró el contenedor #searchResults');
+    return;
+  }
+  
   if (products.length === 0) {
-    resultsContainer.innerHTML = '<div class="search-no-results">No se encontraron productos</div>';
+    const searchHint = searchInfo.isIdSearch 
+      ? `No se encontró ningún producto con ID "${searchInfo.query}"`
+      : `No se encontraron productos con "${searchInfo.query}"`;
+    
+    resultsContainer.innerHTML = `<div class="search-no-results">${searchHint}</div>`;
     resultsContainer.classList.add('show');
     return;
   }
   
-  const html = products.map(product => `
+  // Mostrar información de búsqueda si es por ID
+  let searchHeader = '';
+  if (searchInfo.isIdSearch && products.length > 0) {
+    searchHeader = `<div class="search-info">🔍 Búsqueda por ID: ${searchInfo.query}</div>`;
+  }
+  
+  const html = searchHeader + products.map(product => `
     <div class="search-result-item" data-product-id="${product.id}">
       <img src="${product.image}" alt="${product.name}" class="search-result-image" onerror="this.src='data:image/svg+xml,<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"50\" height=\"50\" viewBox=\"0 0 24 24\" fill=\"%23ddd\"><rect width=\"24\" height=\"24\" fill=\"%23f5f5f5\"/><text x=\"12\" y=\"12\" text-anchor=\"middle\" dominant-baseline=\"middle\" font-size=\"10\" fill=\"%23999\">IMG</text></svg>'">
       <div class="search-result-info">
-        <h4 class="search-result-name">${product.name}</h4>
+        <h4 class="search-result-name">${product.name} <span class="product-id">#${product.id}</span></h4>
         <p class="search-result-meta">${product.category} • <span class="search-result-price">$${product.cost.toLocaleString()} ${product.currency}</span></p>
       </div>
+      <button class="search-result-add-btn" type="button">➕ Agregar</button>
     </div>
   `).join('');
   
   resultsContainer.innerHTML = html;
   resultsContainer.classList.add('show');
   
-  // Agregar event listeners
-  resultsContainer.querySelectorAll('.search-result-item').forEach(item => {
-    item.addEventListener('click', () => {
+  // Agregar event listeners a los botones
+  resultsContainer.querySelectorAll('.search-result-add-btn').forEach(button => {
+    button.addEventListener('click', (e) => {
+      e.stopPropagation(); // Prevenir propagación del evento
+      const item = button.closest('.search-result-item');
       const productId = parseInt(item.dataset.productId);
       const product = products.find(p => p.id === productId);
       if (product) {
@@ -737,7 +774,7 @@ document.addEventListener("DOMContentLoaded", function () {
   }
 
   // Event listeners para productos relacionados
-  const relatedSearchInput = $("#relatedProductsSearch");
+  const relatedSearchInput = $("#relatedSearch");
   if (relatedSearchInput) {
     relatedSearchInput.addEventListener("input", (e) => {
       clearTimeout(searchTimeout);

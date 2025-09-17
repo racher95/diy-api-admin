@@ -2,14 +2,25 @@ import { readJSON } from "./_shared.mjs";
 
 export async function handler(event) {
   try {
-    if (event.httpMethod !== "GET") {
+    let query = '';
+    let excludeIds = [];
+    let limit = 20;
+
+    // Manejar tanto GET como POST
+    if (event.httpMethod === "GET") {
+      const params = new URLSearchParams(event.queryStringParameters || {});
+      query = params.get('q') || '';
+      const excludeParam = params.get('exclude');
+      excludeIds = excludeParam ? [parseInt(excludeParam)] : [];
+      limit = parseInt(params.get('limit')) || 20;
+    } else if (event.httpMethod === "POST") {
+      const body = JSON.parse(event.body || '{}');
+      query = body.query || '';
+      excludeIds = body.exclude || [];
+      limit = body.limit || 20;
+    } else {
       return { statusCode: 405, body: "Method Not Allowed" };
     }
-
-    const params = new URLSearchParams(event.queryStringParameters || {});
-    const query = params.get('q') || '';
-    const excludeId = parseInt(params.get('exclude')) || null;
-    const limit = parseInt(params.get('limit')) || 20;
 
     // Leer todas las categorías para obtener todos los productos
     const catsResponse = await readJSON("cats/cat.json");
@@ -24,8 +35,8 @@ export async function handler(event) {
         const catProducts = catProductsResponse.json?.products || [];
 
         catProducts.forEach(product => {
-          // Excluir el producto actual si se especifica
-          if (excludeId && product.id === excludeId) {
+          // Excluir productos especificados
+          if (excludeIds.includes(product.id)) {
             return;
           }
 
@@ -50,11 +61,29 @@ export async function handler(event) {
     
     if (query.trim()) {
       const queryLower = query.toLowerCase();
-      filteredProducts = allProducts.filter(product => 
-        product.name.toLowerCase().includes(queryLower) ||
-        product.description.toLowerCase().includes(queryLower) ||
-        product.category.toLowerCase().includes(queryLower)
-      );
+      const queryAsNumber = parseInt(query);
+      const isNumericQuery = !isNaN(queryAsNumber) && queryAsNumber.toString() === query.trim();
+      
+      filteredProducts = allProducts.filter(product => {
+        // Búsqueda por ID (exacta)
+        if (isNumericQuery && product.id === queryAsNumber) {
+          return true;
+        }
+        
+        // Búsqueda por texto en nombre, descripción o categoría
+        return product.name.toLowerCase().includes(queryLower) ||
+               product.description.toLowerCase().includes(queryLower) ||
+               product.category.toLowerCase().includes(queryLower);
+      });
+      
+      // Si es búsqueda por ID, priorizar el resultado exacto
+      if (isNumericQuery) {
+        filteredProducts.sort((a, b) => {
+          if (a.id === queryAsNumber) return -1;
+          if (b.id === queryAsNumber) return 1;
+          return (b.soldCount || 0) - (a.soldCount || 0);
+        });
+      }
     }
 
     // Ordenar por popularidad (soldCount) y limitar resultados
@@ -69,6 +98,7 @@ export async function handler(event) {
         "Access-Control-Allow-Origin": "*"
       },
       body: JSON.stringify({
+        success: true,
         query,
         total: filteredProducts.length,
         limit,
@@ -79,8 +109,13 @@ export async function handler(event) {
   } catch (error) {
     console.error("Error in searchProducts:", error);
     return { 
-      statusCode: 500, 
+      statusCode: 500,
+      headers: { 
+        "Content-Type": "application/json",
+        "Access-Control-Allow-Origin": "*"
+      },
       body: JSON.stringify({ 
+        success: false,
         error: "Error searching products",
         message: error.message 
       })

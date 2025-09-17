@@ -344,6 +344,39 @@ button:hover {
   flex: 1;
 }
 
+.search-result-add-btn {
+  background: #28a745;
+  color: white;
+  border: none;
+  padding: 8px 12px;
+  border-radius: 4px;
+  font-size: 14px;
+  cursor: pointer;
+  transition: all 0.2s;
+  font-weight: 500;
+}
+
+.search-result-add-btn:hover {
+  background: #218838;
+  transform: translateY(-1px);
+}
+
+.search-info {
+  background: #e3f2fd;
+  color: #1565c0;
+  padding: 8px 12px;
+  margin-bottom: 8px;
+  border-radius: 4px;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.product-id {
+  color: #666;
+  font-size: 0.9em;
+  font-weight: normal;
+}
+
 .search-result-name {
   font-weight: 600;
   margin: 0 0 4px 0;
