@@ -120,152 +120,186 @@ function updateProductUrlInputs() {
 // Buscar productos en la API
 // Buscar productos relacionados
 async function searchProducts(query) {
-  console.log('Buscando productos con query:', query);
-  
+  console.log("Buscando productos con query:", query);
+
   // Detectar si es búsqueda por ID
   const isIdSearch = /^\d+$/.test(query.trim());
-  const searchType = isIdSearch ? 'ID' : 'texto';
+  const searchType = isIdSearch ? "ID" : "texto";
   console.log(`Tipo de búsqueda: ${searchType}`);
-  
+
   try {
-    const currentProductId = parseInt($('#pId').value) || 0;
-    const excludeIds = [currentProductId, ...selectedRelatedProducts.map(p => p.id)];
-    
-    const response = await fetch('/.netlify/functions/searchProducts', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+    const currentProductId = parseInt($("#pId").value) || 0;
+    const excludeIds = [
+      currentProductId,
+      ...selectedRelatedProducts.map((p) => p.id),
+    ];
+
+    const response = await fetch("/.netlify/functions/searchProducts", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         query: query,
         exclude: excludeIds,
-        limit: isIdSearch ? 5 : 10  // Menos resultados para búsqueda por ID
-      })
+        limit: isIdSearch ? 5 : 10, // Menos resultados para búsqueda por ID
+      }),
     });
-    
+
     if (!response.ok) {
       throw new Error(`HTTP error! status: ${response.status}`);
     }
-    
+
     const result = await response.json();
-    console.log('Resultados de búsqueda:', result);
-    
+    console.log("Resultados de búsqueda:", result);
+
     if (result.success) {
       renderSearchResults(result.products, { query, isIdSearch });
     } else {
-      console.error('Error en searchProducts:', result.error);
+      console.error("Error en searchProducts:", result.error);
       renderSearchResults([]);
     }
   } catch (error) {
-    console.error('Error buscando productos:', error);
+    console.error("Error buscando productos:", error);
     renderSearchResults([]);
   }
 }
 
 // Renderizar resultados de búsqueda
 function renderSearchResults(products, searchInfo = {}) {
-  console.log('Renderizando resultados:', products);
-  const resultsContainer = $('#searchResults');
-  
+  console.log("Renderizando resultados:", products);
+  const resultsContainer = $("#searchResults");
+
   if (!resultsContainer) {
-    console.error('No se encontró el contenedor #searchResults');
+    console.error("No se encontró el contenedor #searchResults");
     return;
   }
-  
+
   if (products.length === 0) {
-    const searchHint = searchInfo.isIdSearch 
+    const searchHint = searchInfo.isIdSearch
       ? `No se encontró ningún producto con ID "${searchInfo.query}"`
       : `No se encontraron productos con "${searchInfo.query}"`;
-    
+
     resultsContainer.innerHTML = `<div class="search-no-results">${searchHint}</div>`;
-    resultsContainer.classList.add('show');
+    resultsContainer.classList.add("show");
     return;
   }
-  
+
   // Mostrar información de búsqueda si es por ID
-  let searchHeader = '';
+  let searchHeader = "";
   if (searchInfo.isIdSearch && products.length > 0) {
     searchHeader = `<div class="search-info">🔍 Búsqueda por ID: ${searchInfo.query}</div>`;
   }
-  
-  const html = searchHeader + products.map(product => `
+
+  const html =
+    searchHeader +
+    products
+      .map(
+        (product) => `
     <div class="search-result-item" data-product-id="${product.id}">
-      <img src="${product.image}" alt="${product.name}" class="search-result-image" onerror="this.src='data:image/svg+xml,<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"50\" height=\"50\" viewBox=\"0 0 24 24\" fill=\"%23ddd\"><rect width=\"24\" height=\"24\" fill=\"%23f5f5f5\"/><text x=\"12\" y=\"12\" text-anchor=\"middle\" dominant-baseline=\"middle\" font-size=\"10\" fill=\"%23999\">IMG</text></svg>'">
+      <img src="${product.image}" alt="${
+          product.name
+        }" class="search-result-image" onerror="this.src='data:image/svg+xml,<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"50\" height=\"50\" viewBox=\"0 0 24 24\" fill=\"%23ddd\"><rect width=\"24\" height=\"24\" fill=\"%23f5f5f5\"/><text x=\"12\" y=\"12\" text-anchor=\"middle\" dominant-baseline=\"middle\" font-size=\"10\" fill=\"%23999\">IMG</text></svg>'">
       <div class="search-result-info">
-        <h4 class="search-result-name">${product.name} <span class="product-id">#${product.id}</span></h4>
-        <p class="search-result-meta">${product.category} • <span class="search-result-price">$${product.cost.toLocaleString()} ${product.currency}</span></p>
+        <h4 class="search-result-name">${
+          product.name
+        } <span class="product-id">#${product.id}</span></h4>
+        <p class="search-result-meta">${
+          product.category
+        } • <span class="search-result-price">$${product.cost.toLocaleString()} ${
+          product.currency
+        }</span></p>
       </div>
       <button class="search-result-add-btn" type="button">➕ Agregar</button>
     </div>
-  `).join('');
-  
+  `
+      )
+      .join("");
+
   resultsContainer.innerHTML = html;
-  resultsContainer.classList.add('show');
-  
+  resultsContainer.classList.add("show");
+
   // Agregar event listeners a los botones
-  resultsContainer.querySelectorAll('.search-result-add-btn').forEach(button => {
-    button.addEventListener('click', (e) => {
-      e.stopPropagation(); // Prevenir propagación del evento
-      const item = button.closest('.search-result-item');
-      const productId = parseInt(item.dataset.productId);
-      const product = products.find(p => p.id === productId);
-      if (product) {
-        addRelatedProduct(product);
-      }
+  resultsContainer
+    .querySelectorAll(".search-result-add-btn")
+    .forEach((button) => {
+      button.addEventListener("click", (e) => {
+        e.stopPropagation(); // Prevenir propagación del evento
+        const item = button.closest(".search-result-item");
+        const productId = parseInt(item.dataset.productId);
+        const product = products.find((p) => p.id === productId);
+        if (product) {
+          addRelatedProduct(product);
+        }
+      });
     });
-  });
 }
 
 // Agregar producto a la lista de relacionados
 function addRelatedProduct(product) {
   // Verificar que no esté ya seleccionado
-  if (selectedRelatedProducts.find(p => p.id === product.id)) {
-    alert('Este producto ya está en la lista de relacionados');
+  if (selectedRelatedProducts.find((p) => p.id === product.id)) {
+    alert("Este producto ya está en la lista de relacionados");
     return;
   }
-  
+
   // Verificar que no sea el mismo producto que estamos editando
-  const currentProductId = parseInt($('#pId').value);
+  const currentProductId = parseInt($("#pId").value);
   if (currentProductId && product.id === currentProductId) {
-    alert('No puedes agregar el mismo producto como relacionado');
+    alert("No puedes agregar el mismo producto como relacionado");
     return;
   }
-  
+
   selectedRelatedProducts.push(product);
   renderSelectedRelatedProducts();
-  
+
   // Limpiar búsqueda
-  $('#relatedSearch').value = '';
-  $('#searchResults').classList.remove('show');
+  $("#relatedSearch").value = "";
+  $("#searchResults").classList.remove("show");
 }
 
 // Remover producto de la lista de relacionados
 function removeRelatedProduct(productId) {
-  selectedRelatedProducts = selectedRelatedProducts.filter(p => p.id !== productId);
+  selectedRelatedProducts = selectedRelatedProducts.filter(
+    (p) => p.id !== productId
+  );
   renderSelectedRelatedProducts();
 }
 
 // Renderizar lista de productos relacionados seleccionados
 function renderSelectedRelatedProducts() {
-  const container = $('#selectedRelated');
-  
+  const container = $("#selectedRelated");
+
   if (selectedRelatedProducts.length === 0) {
-    container.innerHTML = '<p class="empty-state">No hay productos relacionados seleccionados</p>';
+    container.innerHTML =
+      '<p class="empty-state">No hay productos relacionados seleccionados</p>';
     return;
   }
-  
+
   const html = `
-    <div class="related-products-count">${selectedRelatedProducts.length} producto(s) relacionado(s)</div>
-    ${selectedRelatedProducts.map(product => `
+    <div class="related-products-count">${
+      selectedRelatedProducts.length
+    } producto(s) relacionado(s)</div>
+    ${selectedRelatedProducts
+      .map(
+        (product) => `
       <div class="related-product-item">
-        <img src="${product.image}" alt="${product.name}" class="related-product-image" onerror="this.src='data:image/svg+xml,<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"60\" height=\"60\" viewBox=\"0 0 24 24\" fill=\"%23ddd\"><rect width=\"24\" height=\"24\" fill=\"%23f5f5f5\"/><text x=\"12\" y=\"12\" text-anchor=\"middle\" dominant-baseline=\"middle\" font-size=\"10\" fill=\"%23999\">IMG</text></svg>'">
+        <img src="${product.image}" alt="${
+          product.name
+        }" class="related-product-image" onerror="this.src='data:image/svg+xml,<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"60\" height=\"60\" viewBox=\"0 0 24 24\" fill=\"%23ddd\"><rect width=\"24\" height=\"24\" fill=\"%23f5f5f5\"/><text x=\"12\" y=\"12\" text-anchor=\"middle\" dominant-baseline=\"middle\" font-size=\"10\" fill=\"%23999\">IMG</text></svg>'">
         <div class="related-product-info">
           <h4 class="related-product-name">${product.name}</h4>
-          <p class="related-product-meta">${product.category} • $${product.cost.toLocaleString()} ${product.currency}</p>
+          <p class="related-product-meta">${
+            product.category
+          } • $${product.cost.toLocaleString()} ${product.currency}</p>
         </div>
-        <button type="button" class="remove-related-btn" onclick="removeRelatedProduct(${product.id})">Remover</button>
+        <button type="button" class="remove-related-btn" onclick="removeRelatedProduct(${
+          product.id
+        })">Remover</button>
       </div>
-    `).join('')}
+    `
+      )
+      .join("")}
   `;
-  
+
   container.innerHTML = html;
 }
 
@@ -690,7 +724,7 @@ document.addEventListener("DOMContentLoaded", function () {
         },
         updatedAt: new Date().toISOString(),
       },
-      relatedProductIds: selectedRelatedProducts.map(p => p.id),
+      relatedProductIds: selectedRelatedProducts.map((p) => p.id),
     };
     $("#pStatus").textContent = "Guardando…";
     const r = await fetch("/.netlify/functions/upsertProduct", {
@@ -779,7 +813,7 @@ document.addEventListener("DOMContentLoaded", function () {
     relatedSearchInput.addEventListener("input", (e) => {
       clearTimeout(searchTimeout);
       const query = e.target.value.trim();
-      
+
       if (query.length >= 2) {
         searchTimeout = setTimeout(() => {
           searchProducts(query);

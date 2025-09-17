@@ -161,11 +161,14 @@ async function resolveRelatedProducts(relatedProductIds) {
           category: product.category?.name || product.category || "",
           featured: product.featured || false,
           stock: product.stock || 0,
-          addedAt: new Date().toISOString()
+          addedAt: new Date().toISOString(),
         });
       }
     } catch (error) {
-      console.warn(`No se pudo resolver producto relacionado ${productId}:`, error);
+      console.warn(
+        `No se pudo resolver producto relacionado ${productId}:`,
+        error
+      );
       // Continuar con los demás productos relacionados
     }
   }

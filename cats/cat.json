@@ -1,0 +1,17 @@
+[
+  {
+    "id": 1,
+    "name": "Electrónicos",
+    "description": "Dispositivos electrónicos y gadgets"
+  },
+  {
+    "id": 2,
+    "name": "Hogar",
+    "description": "Artículos para el hogar"
+  },
+  {
+    "id": 3,
+    "name": "Deportes",
+    "description": "Equipamiento deportivo"
+  }
+]

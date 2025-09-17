@@ -1,0 +1,24 @@
+{
+  "catId": 2,
+  "catName": "Hogar",
+  "products": [
+    {
+      "id": 2,
+      "name": "Aspiradora Robot",
+      "description": "Robot aspiradora inteligente",
+      "cost": 399990,
+      "currency": "UYU",
+      "image": "https://example.com/robot.jpg",
+      "soldCount": 18
+    },
+    {
+      "id": 5,
+      "name": "Cafetera Espresso",
+      "description": "Máquina de café espresso automática",
+      "cost": 249990,
+      "currency": "UYU",
+      "image": "https://example.com/cafetera.jpg",
+      "soldCount": 26
+    }
+  ]
+}

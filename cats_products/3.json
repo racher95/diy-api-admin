@@ -1,0 +1,24 @@
+{
+  "catId": 3,
+  "catName": "Deportes",
+  "products": [
+    {
+      "id": 3,
+      "name": "Bicicleta Montaña",
+      "description": "Bicicleta de montaña con suspensión",
+      "cost": 699990,
+      "currency": "UYU",
+      "image": "https://example.com/bici.jpg",
+      "soldCount": 15
+    },
+    {
+      "id": 6,
+      "name": "Pelota Fútbol",
+      "description": "Pelota de fútbol profesional",
+      "cost": 49990,
+      "currency": "UYU",
+      "image": "https://example.com/pelota.jpg",
+      "soldCount": 67
+    }
+  ]
+}

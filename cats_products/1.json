@@ -1,0 +1,51 @@
+{
+  "catId": 1,
+  "catName": "Electrónicos",
+  "products": [
+    {
+      "id": 1,
+      "name": "Smartphone Samsung Galaxy",
+      "description": "Teléfono inteligente con cámara de alta resolución",
+      "cost": 299990,
+      "currency": "UYU",
+      "image": "https://example.com/samsung.jpg",
+      "soldCount": 45
+    },
+    {
+      "id": 4,
+      "name": "Auriculares Bluetooth",
+      "description": "Auriculares inalámbricos con cancelación de ruido",
+      "cost": 89990,
+      "currency": "UYU",
+      "image": "https://example.com/auriculares.jpg",
+      "soldCount": 23
+    },
+    {
+      "id": 10,
+      "name": "Tablet iPad",
+      "description": "Tablet Apple iPad con pantalla Retina",
+      "cost": 549990,
+      "currency": "UYU",
+      "image": "https://example.com/ipad.jpg",
+      "soldCount": 12
+    },
+    {
+      "id": 123,
+      "name": "Smartwatch",
+      "description": "Reloj inteligente con monitor de salud",
+      "cost": 199990,
+      "currency": "UYU",
+      "image": "https://example.com/watch.jpg",
+      "soldCount": 34
+    },
+    {
+      "id": 50501,
+      "name": "Laptop Gaming",
+      "description": "Laptop para gaming con RTX 4060",
+      "cost": 1299990,
+      "currency": "UYU",
+      "image": "https://example.com/laptop.jpg",
+      "soldCount": 8
+    }
+  ]
+}
