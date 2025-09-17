@@ -814,7 +814,14 @@ document.addEventListener("DOMContentLoaded", function () {
       clearTimeout(searchTimeout);
       const query = e.target.value.trim();
 
-      if (query.length >= 2) {
+      // Permitir búsqueda si:
+      // - Tiene 2+ caracteres (búsqueda de texto normal)
+      // - Es un solo dígito (búsqueda por ID)
+      const isIdSearch = /^\d+$/.test(query);
+      const shouldSearch =
+        query.length >= 2 || (query.length === 1 && isIdSearch);
+
+      if (shouldSearch) {
         searchTimeout = setTimeout(() => {
           searchProducts(query);
         }, 300);
