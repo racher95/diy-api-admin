@@ -726,6 +726,15 @@ document.addEventListener("DOMContentLoaded", function () {
       },
       relatedProductIds: selectedRelatedProducts.map((p) => p.id),
     };
+
+    console.log("Enviando payload con productos relacionados:", {
+      relatedProductIds: selectedRelatedProducts.map((p) => p.id),
+      selectedProducts: selectedRelatedProducts.map((p) => ({
+        id: p.id,
+        name: p.name,
+      })),
+    });
+
     $("#pStatus").textContent = "Guardando…";
     const r = await fetch("/.netlify/functions/upsertProduct", {
       method: "POST",

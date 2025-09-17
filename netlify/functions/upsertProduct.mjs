@@ -6,7 +6,11 @@ export async function handler(event) {
       return { statusCode: 405, body: "Method Not Allowed" };
     }
 
-    const { op = "create", product } = JSON.parse(event.body || "{}");
+    const {
+      op = "create",
+      product,
+      relatedProductIds = [],
+    } = JSON.parse(event.body || "{}");
     if (!product) {
       return { statusCode: 400, body: "product object required" };
     }
@@ -32,7 +36,6 @@ export async function handler(event) {
         startsAt: null,
         endsAt: null,
       },
-      relatedProductIds = [], // Nuevo campo para IDs de productos relacionados
       updatedAt = new Date().toISOString(),
     } = product;
 
@@ -47,8 +50,16 @@ export async function handler(event) {
       return { statusCode: 400, body: "missing required product fields" };
     }
 
+    console.log(
+      `Processing product ${id} with related products:`,
+      relatedProductIds
+    );
+
     // 1. Resolver productos relacionados con datos completos
     const relatedProducts = await resolveRelatedProducts(relatedProductIds);
+    console.log(
+      `Resolved ${relatedProducts.length} related products for product ${id}`
+    );
 
     // 2. Guardar detalle completo del producto
     const pPath = `products/${id}.json`;
@@ -141,17 +152,24 @@ export async function handler(event) {
 
 // Función para resolver productos relacionados con datos completos
 async function resolveRelatedProducts(relatedProductIds) {
+  console.log("resolveRelatedProducts called with:", relatedProductIds);
+
   if (!Array.isArray(relatedProductIds) || relatedProductIds.length === 0) {
+    console.log("No related products to resolve");
     return [];
   }
 
   const relatedProducts = [];
 
   for (const productId of relatedProductIds) {
+    console.log(`Trying to resolve product ID: ${productId}`);
     try {
       const productResponse = await readJSON(`products/${productId}.json`);
       if (productResponse.json) {
         const product = productResponse.json;
+        console.log(
+          `Successfully resolved product ${productId}: ${product.name}`
+        );
         relatedProducts.push({
           id: product.id,
           name: product.name,
@@ -167,12 +185,13 @@ async function resolveRelatedProducts(relatedProductIds) {
     } catch (error) {
       console.warn(
         `No se pudo resolver producto relacionado ${productId}:`,
-        error
+        error.message
       );
       // Continuar con los demás productos relacionados
     }
   }
 
+  console.log(`Final resolved products: ${relatedProducts.length}`);
   return relatedProducts;
 }
 
