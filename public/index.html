@@ -240,6 +240,38 @@
         ><span id="pStatus"></span>
       </div>
     </fieldset>
+
+    <!-- Sección de Limpieza de Imágenes -->
+    <fieldset class="image-cleanup-section">
+      <legend>🧹 Limpieza de Imágenes No Utilizadas</legend>
+      <div class="info-box">
+        <p>
+          <strong>¿Qué hace esta herramienta?</strong><br />
+          Escanea todos los productos y categorías para identificar qué imágenes
+          están en uso, luego compara con las imágenes en la carpeta
+          <code>/img</code>
+          y elimina las que no están siendo utilizadas.
+        </p>
+        <p class="warning-text">
+          ⚠️ <strong>Importante:</strong> Primero ejecuta en modo de prueba para
+          ver qué imágenes serían eliminadas.
+        </p>
+      </div>
+
+      <div class="cleanup-actions">
+        <button id="scanImages" class="btn-scan">
+          🔍 Escanear Imágenes (Modo Prueba)
+        </button>
+        <button id="cleanImages" class="btn-clean danger-btn" disabled>
+          🗑️ Eliminar Imágenes No Utilizadas
+        </button>
+      </div>
+
+      <div id="cleanupStatus" class="cleanup-status"></div>
+
+      <div id="cleanupResults" class="cleanup-results"></div>
+    </fieldset>
+
     <script src="admin.js"></script>
   </body>
 </html>

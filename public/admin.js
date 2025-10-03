@@ -839,4 +839,295 @@ document.addEventListener("DOMContentLoaded", function () {
       }
     });
   }
+
+  // ==========================================
+  // FUNCIONALIDAD DE LIMPIEZA DE IMÁGENES
+  // ==========================================
+
+  let lastScanResults = null;
+
+  // Escanear imágenes en modo prueba
+  $("#scanImages").onclick = async () => {
+    await performImageCleanup(true); // dryRun = true
+  };
+
+  // Eliminar imágenes no utilizadas
+  $("#cleanImages").onclick = async () => {
+    if (
+      !confirm(
+        "⚠️ ¿Estás seguro de que deseas eliminar las imágenes no utilizadas?\n\nEsta acción NO se puede deshacer."
+      )
+    ) {
+      return;
+    }
+
+    await performImageCleanup(false); // dryRun = false
+  };
+
+  async function performImageCleanup(dryRun) {
+    const statusDiv = $("#cleanupStatus");
+    const resultsDiv = $("#cleanupResults");
+    const cleanButton = $("#cleanImages");
+
+    // Mostrar estado de carga
+    statusDiv.className = "cleanup-status loading";
+    statusDiv.innerHTML = dryRun
+      ? "🔍 Escaneando imágenes y analizando uso..."
+      : "🗑️ Eliminando imágenes no utilizadas...";
+
+    // Limpiar resultados previos
+    resultsDiv.innerHTML = "";
+
+    // Deshabilitar botones durante el proceso
+    $("#scanImages").disabled = true;
+    cleanButton.disabled = true;
+
+    try {
+      const response = await fetch("/.netlify/functions/cleanUnusedImages", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ dryRun }),
+      });
+
+      const result = await response.json();
+
+      if (result.success) {
+        lastScanResults = result;
+
+        // Mostrar estado de éxito
+        statusDiv.className = "cleanup-status success";
+        if (dryRun) {
+          statusDiv.innerHTML = `✅ Escaneo completado. Se encontraron ${result.summary.unusedImages} imágenes sin uso.`;
+        } else {
+          statusDiv.innerHTML = `✅ Limpieza completada. Se eliminaron ${result.summary.deletedImages} imágenes.`;
+        }
+
+        // Habilitar botón de eliminación si hay imágenes para eliminar
+        if (dryRun && result.summary.unusedImages > 0) {
+          cleanButton.disabled = false;
+        }
+
+        // Mostrar resultados detallados
+        renderCleanupResults(result);
+      } else {
+        throw new Error(result.error || "Error desconocido");
+      }
+    } catch (error) {
+      console.error("Error en limpieza de imágenes:", error);
+      statusDiv.className = "cleanup-status error";
+      statusDiv.innerHTML = `❌ Error: ${error.message}`;
+    } finally {
+      // Rehabilitar botón de escaneo
+      $("#scanImages").disabled = false;
+    }
+  }
+
+  function renderCleanupResults(result) {
+    const resultsDiv = $("#cleanupResults");
+
+    const html = `
+      <div class="results-summary">
+        <h3>📊 Resumen del ${result.dryRun ? "Escaneo" : "Limpieza"}</h3>
+        <div class="summary-grid">
+          <div class="summary-item">
+            <span class="number">${result.summary.totalImagesInFolder}</span>
+            <span class="label">Total de Imágenes</span>
+          </div>
+          <div class="summary-item">
+            <span class="number" style="color: #28a745;">${
+              result.summary.imagesInUse
+            }</span>
+            <span class="label">En Uso</span>
+          </div>
+          <div class="summary-item">
+            <span class="number" style="color: #ffc107;">${
+              result.summary.unusedImages
+            }</span>
+            <span class="label">Sin Uso</span>
+          </div>
+          ${
+            !result.dryRun
+              ? `
+          <div class="summary-item">
+            <span class="number" style="color: #dc3545;">${result.summary.deletedImages}</span>
+            <span class="label">Eliminadas</span>
+          </div>
+          `
+              : ""
+          }
+        </div>
+      </div>
+
+      <div class="results-tabs">
+        <button class="tab-button active" data-tab="unused">
+          🗑️ Sin Uso (${result.details.unusedImages.length})
+        </button>
+        <button class="tab-button" data-tab="used">
+          ✅ En Uso (${result.details.usedImages.length})
+        </button>
+        ${
+          result.details.errors.length > 0
+            ? `
+        <button class="tab-button" data-tab="errors">
+          ❌ Errores (${result.details.errors.length})
+        </button>
+        `
+            : ""
+        }
+      </div>
+
+      <div class="tab-content active" id="tab-unused">
+        ${renderUnusedImages(result.details.unusedImages, result.dryRun)}
+      </div>
+
+      <div class="tab-content" id="tab-used">
+        ${renderUsedImages(result.details.usedImages)}
+      </div>
+
+      ${
+        result.details.errors.length > 0
+          ? `
+      <div class="tab-content" id="tab-errors">
+        ${renderErrors(result.details.errors)}
+      </div>
+      `
+          : ""
+      }
+    `;
+
+    resultsDiv.innerHTML = html;
+
+    // Agregar event listeners para las pestañas
+    resultsDiv.querySelectorAll(".tab-button").forEach((button) => {
+      button.addEventListener("click", () => {
+        const tabName = button.dataset.tab;
+
+        // Cambiar pestaña activa
+        resultsDiv
+          .querySelectorAll(".tab-button")
+          .forEach((b) => b.classList.remove("active"));
+        button.classList.add("active");
+
+        // Cambiar contenido activo
+        resultsDiv
+          .querySelectorAll(".tab-content")
+          .forEach((c) => c.classList.remove("active"));
+        resultsDiv.querySelector(`#tab-${tabName}`).classList.add("active");
+      });
+    });
+  }
+
+  function renderUnusedImages(images, dryRun) {
+    if (images.length === 0) {
+      return '<div class="empty-state">🎉 No hay imágenes sin uso. ¡Todo limpio!</div>';
+    }
+
+    return `
+      <div class="info-box" style="margin-bottom: 20px;">
+        <p>
+          ${
+            dryRun
+              ? `<strong>Estas imágenes NO están siendo utilizadas</strong> por ningún producto o categoría.
+               Haz clic en "Eliminar Imágenes No Utilizadas" para eliminarlas permanentemente.`
+              : `<strong>Las siguientes imágenes fueron eliminadas</strong> exitosamente.`
+          }
+        </p>
+      </div>
+      <ul class="image-list">
+        ${images
+          .map(
+            (imagePath) => `
+          <li class="image-item">
+            <div class="image-info">
+              <div class="image-path">${imagePath}</div>
+              <div class="image-usage">
+                <span class="usage-badge" style="background: #f8d7da; color: #721c24;">
+                  No utilizada
+                </span>
+              </div>
+            </div>
+          </li>
+        `
+          )
+          .join("")}
+      </ul>
+    `;
+  }
+
+  function renderUsedImages(images) {
+    if (images.length === 0) {
+      return '<div class="empty-state">No se encontraron imágenes en uso.</div>';
+    }
+
+    return `
+      <div class="info-box" style="margin-bottom: 20px;">
+        <p>
+          <strong>Estas imágenes están siendo utilizadas</strong> y no serán eliminadas.
+        </p>
+      </div>
+      <ul class="image-list">
+        ${images
+          .map(
+            (img) => `
+          <li class="image-item">
+            <div class="image-info">
+              <div class="image-path">${img.path}</div>
+              <div class="image-usage">
+                <span class="usage-badge">
+                  ${img.usageCount} uso${img.usageCount > 1 ? "s" : ""}
+                </span>
+                ${img.usedBy
+                  .slice(0, 3)
+                  .map(
+                    (use) => `
+                  <span class="usage-badge" style="background: #d4edda; color: #155724;">
+                    ${use.type === "product" ? "📦" : "📁"} ${
+                      use.name || use.id
+                    }
+                  </span>
+                `
+                  )
+                  .join("")}
+                ${
+                  img.usageCount > 3
+                    ? `<span class="usage-badge">+${
+                        img.usageCount - 3
+                      } más</span>`
+                    : ""
+                }
+              </div>
+            </div>
+          </li>
+        `
+          )
+          .join("")}
+      </ul>
+    `;
+  }
+
+  function renderErrors(errors) {
+    return `
+      <div class="info-box" style="background: #f8d7da; border-left-color: #dc3545;">
+        <p style="color: #721c24;">
+          <strong>Se encontraron errores durante la eliminación:</strong>
+        </p>
+      </div>
+      <ul class="image-list">
+        ${errors
+          .map(
+            (error) => `
+          <li class="image-item">
+            <div class="image-info">
+              <div class="image-path">${error.path}</div>
+              <div class="image-usage" style="color: #dc3545;">
+                ❌ ${error.error}
+              </div>
+            </div>
+          </li>
+        `
+          )
+          .join("")}
+      </ul>
+    `;
+  }
 });

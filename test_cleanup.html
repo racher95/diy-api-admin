@@ -1,0 +1,506 @@
+<!DOCTYPE html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Test - Limpieza de Imágenes</title>
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        margin: 20px;
+        max-width: 1200px;
+        margin: 0 auto;
+        padding: 20px;
+      }
+      .test-section {
+        border: 2px solid #ccc;
+        padding: 20px;
+        margin: 20px 0;
+        border-radius: 8px;
+        background: #f8f9fa;
+      }
+      .btn {
+        padding: 12px 20px;
+        background: #007bff;
+        color: white;
+        border: none;
+        cursor: pointer;
+        margin: 5px;
+        border-radius: 4px;
+        font-size: 1em;
+        transition: all 0.2s;
+      }
+      .btn:hover {
+        background: #0056b3;
+        transform: translateY(-1px);
+      }
+      .btn-danger {
+        background: #dc3545;
+      }
+      .btn-danger:hover {
+        background: #c82333;
+      }
+      .btn-success {
+        background: #28a745;
+      }
+      .btn-success:hover {
+        background: #218838;
+      }
+      .results {
+        background: white;
+        padding: 20px;
+        margin: 15px 0;
+        border-radius: 4px;
+        border: 1px solid #dee2e6;
+      }
+      .success {
+        color: #28a745;
+        font-weight: bold;
+      }
+      .error {
+        color: #dc3545;
+        font-weight: bold;
+      }
+      .warning {
+        color: #ffc107;
+        font-weight: bold;
+      }
+      pre {
+        background: #f1f1f1;
+        padding: 15px;
+        border-radius: 4px;
+        overflow-x: auto;
+        font-size: 0.9em;
+      }
+      .status {
+        font-weight: bold;
+        margin: 15px 0;
+        padding: 10px;
+        border-radius: 4px;
+      }
+      .status.loading {
+        background: #fff3cd;
+        border: 1px solid #ffc107;
+        color: #856404;
+      }
+      .status.success {
+        background: #d4edda;
+        border: 1px solid #28a745;
+        color: #155724;
+      }
+      .status.error {
+        background: #f8d7da;
+        border: 1px solid #dc3545;
+        color: #721c24;
+      }
+      h2 {
+        color: #333;
+        border-bottom: 2px solid #007bff;
+        padding-bottom: 10px;
+      }
+      .info-box {
+        background: #e7f3ff;
+        border-left: 4px solid #0066cc;
+        padding: 15px;
+        margin: 15px 0;
+        border-radius: 4px;
+      }
+      .summary-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+        gap: 15px;
+        margin: 15px 0;
+      }
+      .summary-card {
+        background: white;
+        padding: 15px;
+        border-radius: 4px;
+        text-align: center;
+        border: 1px solid #dee2e6;
+      }
+      .summary-card .number {
+        font-size: 2em;
+        font-weight: bold;
+        color: #007bff;
+        display: block;
+      }
+      .summary-card .label {
+        font-size: 0.9em;
+        color: #666;
+        margin-top: 5px;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>🧪 Test de Limpieza de Imágenes No Utilizadas</h1>
+
+    <div class="info-box">
+      <p><strong>📋 Instrucciones:</strong></p>
+      <ol>
+        <li>
+          Primero ejecuta el <strong>escaneo en modo prueba</strong> para ver
+          qué imágenes serían eliminadas
+        </li>
+        <li>Revisa los resultados detalladamente</li>
+        <li>
+          Si todo está correcto, ejecuta la <strong>limpieza real</strong>
+        </li>
+        <li>
+          ⚠️ La limpieza real
+          <strong>elimina archivos permanentemente</strong> del repositorio
+        </li>
+      </ol>
+    </div>
+
+    <div class="test-section">
+      <h2>1️⃣ Escaneo en Modo Prueba (Recomendado Primero)</h2>
+      <p>
+        Este test <strong>NO elimina nada</strong>, solo muestra qué imágenes
+        están en uso y cuáles no.
+      </p>
+      <button class="btn btn-success" onclick="testScan()">
+        🔍 Ejecutar Escaneo de Prueba
+      </button>
+      <div id="scanResults" class="results" style="display: none"></div>
+    </div>
+
+    <div class="test-section">
+      <h2>2️⃣ Limpieza Real (⚠️ Elimina Permanentemente)</h2>
+      <p>
+        Este test <strong>ELIMINARÁ</strong> las imágenes no utilizadas del
+        repositorio.
+      </p>
+      <div
+        class="info-box"
+        style="background: #fff3cd; border-left-color: #ffc107"
+      >
+        <p style="color: #856404">
+          <strong>⚠️ ADVERTENCIA:</strong> Esta acción es permanente. Asegúrate
+          de haber revisado los resultados del escaneo de prueba antes de
+          continuar.
+        </p>
+      </div>
+      <button class="btn btn-danger" onclick="testCleanup()">
+        🗑️ Ejecutar Limpieza Real
+      </button>
+      <div id="cleanupResults" class="results" style="display: none"></div>
+    </div>
+
+    <div class="test-section">
+      <h2>3️⃣ Crear Imágenes de Prueba</h2>
+      <p>Utilidades para crear escenarios de prueba.</p>
+      <button class="btn" onclick="showTestData()">
+        📊 Ver Datos de Ejemplo
+      </button>
+      <div id="testDataResults" class="results" style="display: none"></div>
+    </div>
+
+    <script>
+      const $ = (s) => document.querySelector(s);
+
+      async function testScan() {
+        const resultsDiv = $("#scanResults");
+        resultsDiv.style.display = "block";
+        resultsDiv.innerHTML =
+          '<div class="status loading">🔍 Escaneando imágenes...</div>';
+
+        try {
+          console.log("Iniciando escaneo de prueba...");
+
+          const response = await fetch(
+            "/.netlify/functions/cleanUnusedImages",
+            {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ dryRun: true }),
+            }
+          );
+
+          console.log("Response status:", response.status);
+          const result = await response.json();
+          console.log("Resultado completo:", result);
+
+          if (result.success) {
+            resultsDiv.innerHTML = `
+                        <div class="status success">✅ Escaneo completado exitosamente</div>
+
+                        <h3>📊 Resumen</h3>
+                        <div class="summary-grid">
+                            <div class="summary-card">
+                                <span class="number">${
+                                  result.summary.totalImagesInFolder
+                                }</span>
+                                <span class="label">Total de Imágenes</span>
+                            </div>
+                            <div class="summary-card">
+                                <span class="number" style="color: #28a745;">${
+                                  result.summary.imagesInUse
+                                }</span>
+                                <span class="label">En Uso</span>
+                            </div>
+                            <div class="summary-card">
+                                <span class="number" style="color: #ffc107;">${
+                                  result.summary.unusedImages
+                                }</span>
+                                <span class="label">Sin Uso</span>
+                            </div>
+                        </div>
+
+                        ${
+                          result.summary.unusedImages > 0
+                            ? `
+                        <div class="info-box" style="background: #fff3cd; border-left-color: #ffc107;">
+                            <p style="color: #856404;">
+                                <strong>⚠️ Se encontraron ${
+                                  result.summary.unusedImages
+                                } imágenes sin uso</strong><br>
+                                Estas imágenes serían eliminadas si ejecutas la limpieza real.
+                            </p>
+                        </div>
+                        <h3>🗑️ Imágenes que serían eliminadas:</h3>
+                        <ul>
+                            ${result.details.unusedImages
+                              .map((img) => `<li><code>${img}</code></li>`)
+                              .join("")}
+                        </ul>
+                        `
+                            : `
+                        <div class="info-box" style="background: #d4edda; border-left-color: #28a745;">
+                            <p style="color: #155724;">
+                                <strong>🎉 ¡Excelente! No hay imágenes sin uso</strong><br>
+                                Todas las imágenes en el repositorio están siendo utilizadas.
+                            </p>
+                        </div>
+                        `
+                        }
+
+                        ${
+                          result.details.usedImages.length > 0
+                            ? `
+                        <details style="margin-top: 20px;">
+                            <summary style="cursor: pointer; font-weight: bold;">✅ Ver imágenes en uso (${
+                              result.details.usedImages.length
+                            })</summary>
+                            <ul style="margin-top: 10px;">
+                                ${result.details.usedImages
+                                  .slice(0, 10)
+                                  .map(
+                                    (img) => `
+                                    <li>
+                                        <code>${img.path}</code>
+                                        <span style="color: #666;">(${
+                                          img.usageCount
+                                        } uso${
+                                      img.usageCount > 1 ? "s" : ""
+                                    })</span>
+                                    </li>
+                                `
+                                  )
+                                  .join("")}
+                                ${
+                                  result.details.usedImages.length > 10
+                                    ? `<li><em>... y ${
+                                        result.details.usedImages.length - 10
+                                      } más</em></li>`
+                                    : ""
+                                }
+                            </ul>
+                        </details>
+                        `
+                            : ""
+                        }
+
+                        <details style="margin-top: 20px;">
+                            <summary style="cursor: pointer; font-weight: bold;">🔍 Ver JSON completo</summary>
+                            <pre>${JSON.stringify(result, null, 2)}</pre>
+                        </details>
+                    `;
+          } else {
+            throw new Error(result.error || "Error desconocido");
+          }
+        } catch (error) {
+          console.error("Error en escaneo:", error);
+          resultsDiv.innerHTML = `
+                    <div class="status error">❌ Error en el escaneo</div>
+                    <p class="error">${error.message}</p>
+                    <details>
+                        <summary>Ver detalles del error</summary>
+                        <pre>${error.stack || error.toString()}</pre>
+                    </details>
+                `;
+        }
+      }
+
+      async function testCleanup() {
+        if (
+          !confirm(
+            "⚠️ ¿Estás seguro de que deseas ELIMINAR permanentemente las imágenes no utilizadas?\n\nEsta acción NO se puede deshacer."
+          )
+        ) {
+          return;
+        }
+
+        const resultsDiv = $("#cleanupResults");
+        resultsDiv.style.display = "block";
+        resultsDiv.innerHTML =
+          '<div class="status loading">🗑️ Eliminando imágenes no utilizadas...</div>';
+
+        try {
+          console.log("Iniciando limpieza real...");
+
+          const response = await fetch(
+            "/.netlify/functions/cleanUnusedImages",
+            {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ dryRun: false }),
+            }
+          );
+
+          console.log("Response status:", response.status);
+          const result = await response.json();
+          console.log("Resultado completo:", result);
+
+          if (result.success) {
+            resultsDiv.innerHTML = `
+                        <div class="status success">✅ Limpieza completada exitosamente</div>
+
+                        <h3>📊 Resumen de Limpieza</h3>
+                        <div class="summary-grid">
+                            <div class="summary-card">
+                                <span class="number" style="color: #dc3545;">${
+                                  result.summary.deletedImages
+                                }</span>
+                                <span class="label">Imágenes Eliminadas</span>
+                            </div>
+                            <div class="summary-card">
+                                <span class="number" style="color: #28a745;">${
+                                  result.summary.imagesInUse
+                                }</span>
+                                <span class="label">Imágenes Conservadas</span>
+                            </div>
+                            ${
+                              result.summary.errors > 0
+                                ? `
+                            <div class="summary-card">
+                                <span class="number" style="color: #ffc107;">${result.summary.errors}</span>
+                                <span class="label">Errores</span>
+                            </div>
+                            `
+                                : ""
+                            }
+                        </div>
+
+                        ${
+                          result.details.deletedImages.length > 0
+                            ? `
+                        <h3>🗑️ Imágenes eliminadas:</h3>
+                        <ul>
+                            ${result.details.deletedImages
+                              .map((img) => `<li><code>${img}</code></li>`)
+                              .join("")}
+                        </ul>
+                        `
+                            : ""
+                        }
+
+                        ${
+                          result.details.errors.length > 0
+                            ? `
+                        <div class="info-box" style="background: #f8d7da; border-left-color: #dc3545;">
+                            <p style="color: #721c24;">
+                                <strong>⚠️ Se encontraron errores durante la eliminación</strong>
+                            </p>
+                        </div>
+                        <h3>❌ Errores:</h3>
+                        <ul>
+                            ${result.details.errors
+                              .map(
+                                (err) =>
+                                  `<li><code>${err.path}</code>: ${err.error}</li>`
+                              )
+                              .join("")}
+                        </ul>
+                        `
+                            : ""
+                        }
+
+                        <details style="margin-top: 20px;">
+                            <summary style="cursor: pointer; font-weight: bold;">🔍 Ver JSON completo</summary>
+                            <pre>${JSON.stringify(result, null, 2)}</pre>
+                        </details>
+                    `;
+          } else {
+            throw new Error(result.error || "Error desconocido");
+          }
+        } catch (error) {
+          console.error("Error en limpieza:", error);
+          resultsDiv.innerHTML = `
+                    <div class="status error">❌ Error en la limpieza</div>
+                    <p class="error">${error.message}</p>
+                    <details>
+                        <summary>Ver detalles del error</summary>
+                        <pre>${error.stack || error.toString()}</pre>
+                    </details>
+                `;
+        }
+      }
+
+      function showTestData() {
+        const resultsDiv = $("#testDataResults");
+        resultsDiv.style.display = "block";
+
+        resultsDiv.innerHTML = `
+                <h3>📊 Datos de Ejemplo para Testing</h3>
+
+                <p>Para probar la funcionalidad, puedes crear este escenario:</p>
+
+                <h4>1. Estructura de Imágenes</h4>
+                <pre>
+img/
+├── products/
+│   ├── phone1.jpg       ← En uso por producto 1
+│   ├── phone2.jpg       ← En uso por producto 2
+│   └── old_phone.jpg    ← NO utilizada (será eliminada)
+└── categories/
+    ├── electronics.jpg  ← En uso por categoría
+    └── old_cat.jpg      ← NO utilizada (será eliminada)
+                </pre>
+
+                <h4>2. Producto de Ejemplo</h4>
+                <pre>
+{
+  "id": 1,
+  "name": "Smartphone",
+  "image": "img/products/phone1.jpg",
+  "images": [
+    "img/products/phone1.jpg",
+    "img/products/phone2.jpg"
+  ]
+}
+                </pre>
+
+                <h4>3. Categoría de Ejemplo</h4>
+                <pre>
+{
+  "id": 1,
+  "name": "Electrónicos",
+  "imgSrc": "img/categories/electronics.jpg"
+}
+                </pre>
+
+                <div class="info-box">
+                    <p>
+                        <strong>Resultado Esperado:</strong><br>
+                        - <code>phone1.jpg</code> y <code>phone2.jpg</code> se conservan (en uso)<br>
+                        - <code>electronics.jpg</code> se conserva (en uso)<br>
+                        - <code>old_phone.jpg</code> y <code>old_cat.jpg</code> se eliminan (sin uso)
+                    </p>
+                </div>
+            `;
+      }
+
+      console.log("Test de limpieza de imágenes cargado");
+    </script>
+  </body>
+</html>
