@@ -208,15 +208,16 @@ export async function handler(event) {
     const usedImages = [];
 
     for (const imagePath of allImages) {
-      // Normalizar la ruta para comparación
-      const normalizedPath = imagePath.startsWith("img/")
-        ? imagePath
-        : `img/${imagePath}`;
+      // Extraer solo el nombre del archivo del path completo (por si viene como img/archivo.jpg)
+      const fileName = imagePath.includes("/") 
+        ? imagePath.split("/").pop() 
+        : imagePath;
 
-      if (imagesInUse.has(normalizedPath)) {
+      if (imagesInUse.has(fileName)) {
         usedImages.push({
           path: imagePath,
-          usedBy: imageUsage[normalizedPath] || [],
+          fileName: fileName,
+          usedBy: imageUsage[fileName] || [],
         });
       } else {
         unusedImages.push(imagePath);
@@ -291,34 +292,36 @@ export async function handler(event) {
   }
 }
 
-// Función helper para extraer la ruta de imagen desde URLs completas
+// Función helper para extraer el nombre de archivo de imagen desde URLs completas
 function extractImagePath(imageUrl) {
   if (!imageUrl) return null;
 
-  // Si ya es una ruta relativa, devolverla
-  if (imageUrl.startsWith("img/")) {
-    return imageUrl;
-  }
-
-  // Si es una URL completa, extraer la parte de la ruta
   try {
-    const url = new URL(imageUrl);
-    const pathname = url.pathname;
-
-    // Buscar la parte que contiene 'img/'
-    const imgIndex = pathname.indexOf("/img/");
-    if (imgIndex !== -1) {
-      return pathname.substring(imgIndex + 1); // +1 para quitar el '/' inicial
+    // Si es una URL completa, extraer el nombre del archivo
+    if (imageUrl.startsWith("http://") || imageUrl.startsWith("https://")) {
+      const url = new URL(imageUrl);
+      const pathname = url.pathname;
+      
+      // Extraer solo el nombre del archivo (última parte después del último /)
+      const parts = pathname.split("/");
+      const fileName = parts[parts.length - 1];
+      
+      if (fileName) {
+        return fileName;
+      }
     }
 
-    // Si tiene img/ al inicio
-    if (pathname.startsWith("/img/")) {
-      return pathname.substring(1); // Quitar el '/' inicial
+    // Si ya es solo un nombre de archivo (sin protocolo ni barras)
+    if (!imageUrl.includes("/")) {
+      return imageUrl;
     }
+
+    // Si es una ruta relativa (contiene / pero no es URL completa)
+    const parts = imageUrl.split("/");
+    return parts[parts.length - 1];
+    
   } catch (error) {
-    // No es una URL válida, podría ser una ruta relativa
+    console.warn(`Error parsing image URL: ${imageUrl}`, error.message);
     return null;
   }
-
-  return null;
 }

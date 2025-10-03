@@ -14,37 +14,27 @@ La herramienta de limpieza de imágenes escanea todos los productos y categoría
 
 ✅ **Tracking de Uso**: Indica qué productos/categorías están usando cada imagen.
 
-## Cómo usar
+## 🔍 Cómo Funciona
 
-### 1. Escanear Imágenes (Modo Prueba)
+### Escaneo de Imágenes
 
-Primero, **siempre ejecuta un escaneo en modo prueba**:
+1. **Recopila todas las imágenes en uso**:
+   - Lee todas las categorías (`cats/cat.json`)
+   - Lee categorías promocionales (`cats/featured.json`, `cats/hot_sales.json`)
+   - Lee todos los productos de cada categoría (`cats_products/{id}.json`)
+   - Lee detalles completos de cada producto (`products/{id}.json`)
+   - Incluye imágenes de productos relacionados
+   - **Extrae nombres de archivo** desde URLs completas (ej: `https://racher95.github.io/diy-emercado-api/images/products/imagen.webp` → `imagen.webp`)
 
-1. Haz clic en el botón **"🔍 Escanear Imágenes (Modo Prueba)"**
-2. Espera a que complete el escaneo (puede tomar unos segundos)
-3. Revisa el reporte detallado:
-   - **Total de Imágenes**: Cantidad total en la carpeta `/img`
-   - **En Uso**: Imágenes que están siendo utilizadas
-   - **Sin Uso**: Imágenes que no están siendo referenciadas
+2. **Lista todos los archivos en `/img`**:
+   - Usa la API de GitHub para obtener la lista completa
+   - Extrae solo los nombres de archivo para comparación
 
-### 2. Revisar Resultados
-
-El reporte incluye tres pestañas:
-
-- **🗑️ Sin Uso**: Lista de imágenes que serían eliminadas
-- **✅ En Uso**: Lista de imágenes que se conservarán (muestra dónde se usan)
-- **❌ Errores**: Errores durante el proceso (si los hay)
-
-### 3. Eliminar Imágenes No Utilizadas
-
-Una vez revisado el reporte en modo prueba:
-
-1. Haz clic en **"🗑️ Eliminar Imágenes No Utilizadas"**
-2. Confirma la acción en el diálogo de confirmación
-3. Espera a que complete la eliminación
-4. Revisa el reporte final
-
-⚠️ **IMPORTANTE**: La eliminación es **permanente** y **no se puede deshacer**.
+3. **Compara y genera reporte**:
+   - Compara **nombres de archivo** (no rutas completas)
+   - Identifica qué imágenes están en uso
+   - Identifica qué imágenes no tienen referencias
+   - Muestra dónde se usa cada imagen
 
 ## Qué imágenes se consideran "en uso"
 
