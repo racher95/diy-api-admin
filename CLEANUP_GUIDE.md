@@ -24,16 +24,19 @@ La herramienta de limpieza de imágenes escanea todos los productos y categoría
    - Lee todos los productos de cada categoría (`cats_products/{id}.json`)
    - Lee detalles completos de cada producto (`products/{id}.json`)
    - Incluye imágenes de productos relacionados
-   - **Extrae nombres de archivo** desde URLs completas (ej: `https://racher95.github.io/diy-emercado-api/images/products/imagen.webp` → `imagen.webp`)
+   - **Extrae nombres de archivo con extensión** desde URLs completas
+     - Ejemplo: `https://racher95.github.io/diy-emercado-api/images/products/imagen.webp` → `imagen.webp`
+     - Soporta todos los formatos: `.webp`, `.jpg`, `.jpeg`, `.png`, `.gif`, etc.
 
-2. **Lista todos los archivos en `/img`**:
+2. **Lista todos los archivos en las carpetas de imágenes**:
+   - Escanea `images/products/` - Imágenes de productos
+   - Escanea `images/cats/` - Imágenes de categorías
    - Usa la API de GitHub para obtener la lista completa
-   - Extrae solo los nombres de archivo para comparación
 
 3. **Compara y genera reporte**:
-   - Compara **nombres de archivo** (no rutas completas)
+   - Compara **nombres de archivo completos** (incluyendo extensión)
    - Identifica qué imágenes están en uso
-   - Identifica qué imágenes no tienen referencias
+   - Identifica qué imágenes no tienen referencias (duplicadas, huérfanas)
    - Muestra dónde se usa cada imagen
 
 ## Qué imágenes se consideran "en uso"
@@ -73,32 +76,49 @@ La herramienta considera que una imagen está en uso si aparece en:
 // Todas se normalizan para comparación
 ```
 
-## Casos de uso comunes
+## 📁 Estructura del Repositorio
 
-### 1. Limpieza después de reemplazar imágenes
+El sistema escanea las siguientes carpetas en tu repositorio de API:
 
-Si subiste nuevas imágenes para reemplazar las antiguas:
+```
+diy-emercado-api/
+├── images/
+│   ├── products/        ← Imágenes de productos
+│   │   ├── imagen1.webp
+│   │   ├── imagen2.jpg
+│   │   └── ...
+│   └── cats/           ← Imágenes de categorías
+│       ├── categoria1.png
+│       ├── categoria2.webp
+│       └── ...
+```
 
-1. Actualiza los productos con las nuevas URLs
-2. Ejecuta el escaneo en modo prueba
-3. Verifica que las imágenes antiguas aparezcan en "Sin Uso"
-4. Ejecuta la limpieza para eliminarlas
+### Formatos Soportados
 
-### 2. Eliminación de productos/categorías
+El sistema detecta y maneja **todos los formatos de imagen**:
+- ✅ `.webp` - WebP (moderno, optimizado)
+- ✅ `.jpg` / `.jpeg` - JPEG (común)
+- ✅ `.png` - PNG (transparencias)
+- ✅ `.gif` - GIF (animaciones)
+- ✅ Cualquier otro formato que uses
 
-Después de eliminar productos o categorías:
+La comparación se hace por **nombre completo del archivo**, incluyendo la extensión, por lo que:
+- `imagen.webp` ≠ `imagen.jpg` (son archivos diferentes)
+- Detecta duplicados exactos por nombre
 
-1. Ejecuta el escaneo para identificar imágenes huérfanas
-2. Revisa el reporte
-3. Limpia las imágenes no utilizadas
+## 🎯 Casos de Uso
 
-### 3. Mantenimiento periódico
+### 1. Limpieza Regular
+Ejecuta el escaneo periódicamente para mantener el repositorio limpio.
 
-Recomendación: Ejecuta esta herramienta mensualmente para:
+### 2. Antes de Deployment
+Asegúrate de no tener imágenes innecesarias que aumenten el tamaño del repo.
 
-- Mantener el repositorio limpio
-- Evitar acumulación de archivos innecesarios
-- Optimizar el tamaño del repositorio
+### 3. Después de Eliminar Productos
+Cuando eliminas productos, sus imágenes pueden quedar huérfanas. Esta herramienta las detecta.
+
+### 4. Detección de Duplicados
+Si subiste la misma imagen dos veces con nombres diferentes, el reporte te lo mostrará.
 
 ## Seguridad y respaldo
 

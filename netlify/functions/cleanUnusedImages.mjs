@@ -184,12 +184,22 @@ export async function handler(event) {
 
     console.log(`Total images in use: ${imagesInUse.size}`);
 
-    // 2. Listar todas las imágenes en la carpeta img
+    // 2. Listar todas las imágenes en las carpetas images/products e images/cats
     let allImages = [];
     try {
-      const imagesResponse = await listFiles("img");
-      allImages = imagesResponse.files || [];
-      console.log(`Total images in /img folder: ${allImages.length}`);
+      // Listar imágenes de productos
+      const productsImagesResponse = await listFiles("images/products");
+      const productsImages = productsImagesResponse.files || [];
+      
+      // Listar imágenes de categorías
+      const catsImagesResponse = await listFiles("images/cats");
+      const catsImages = catsImagesResponse.files || [];
+      
+      allImages = [...productsImages, ...catsImages];
+      console.log(`Total images found:`);
+      console.log(`  - Products: ${productsImages.length}`);
+      console.log(`  - Categories: ${catsImages.length}`);
+      console.log(`  - Total: ${allImages.length}`);
     } catch (error) {
       console.error("Error listing images:", error.message);
       return {
