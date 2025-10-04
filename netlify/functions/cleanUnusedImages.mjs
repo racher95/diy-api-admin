@@ -1,13 +1,19 @@
 import { readJSON, writeJSON, deleteFile, listFiles } from "./_shared.mjs";
 
 export async function handler(event) {
+  console.log("=== cleanUnusedImages function called ===");
+  
   try {
     if (event.httpMethod !== "POST") {
-      return { statusCode: 405, body: "Method Not Allowed" };
+      console.log("Wrong HTTP method:", event.httpMethod);
+      return { 
+        statusCode: 405, 
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ success: false, error: "Method Not Allowed" })
+      };
     }
 
     const { dryRun = true } = JSON.parse(event.body || "{}");
-
     console.log(`Starting image cleanup (dryRun: ${dryRun})`);
 
     // 1. Recopilar todas las imágenes en uso
@@ -186,29 +192,58 @@ export async function handler(event) {
 
     // 2. Listar todas las imágenes en las carpetas images/products e images/cats
     let allImages = [];
+    let productsImages = [];
+    let catsImages = [];
+    
     try {
-      // Listar imágenes de productos
+      console.log("Listing images from images/products...");
       const productsImagesResponse = await listFiles("images/products");
-      const productsImages = productsImagesResponse.files || [];
-      
-      // Listar imágenes de categorías
-      const catsImagesResponse = await listFiles("images/cats");
-      const catsImages = catsImagesResponse.files || [];
-      
-      allImages = [...productsImages, ...catsImages];
-      console.log(`Total images found:`);
-      console.log(`  - Products: ${productsImages.length}`);
-      console.log(`  - Categories: ${catsImages.length}`);
-      console.log(`  - Total: ${allImages.length}`);
+      productsImages = productsImagesResponse.files || [];
+      console.log(`  - Products: ${productsImages.length} images`);
     } catch (error) {
-      console.error("Error listing images:", error.message);
+      console.error("Error listing products images:", error.message);
+      console.error("Error details:", error);
+      // Continuar aunque falle esta carpeta
+    }
+    
+    try {
+      console.log("Listing images from images/cats...");
+      const catsImagesResponse = await listFiles("images/cats");
+      catsImages = catsImagesResponse.files || [];
+      console.log(`  - Categories: ${catsImages.length} images`);
+    } catch (error) {
+      console.error("Error listing category images:", error.message);
+      console.error("Error details:", error);
+      // Continuar aunque falle esta carpeta
+    }
+    
+    allImages = [...productsImages, ...catsImages];
+    console.log(`  - Total: ${allImages.length} images`);
+    
+    // Si no hay imágenes, puede ser un problema de configuración
+    if (allImages.length === 0) {
+      console.warn("⚠️  No images found in repository. Check folder structure.");
       return {
-        statusCode: 500,
+        statusCode: 200,
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          success: false,
-          error: "Could not list images from repository",
-          message: error.message,
+          success: true,
+          dryRun,
+          timestamp: new Date().toISOString(),
+          summary: {
+            totalImagesInFolder: 0,
+            imagesInUse: 0,
+            unusedImages: 0,
+            deletedImages: 0,
+            errors: 0,
+          },
+          details: {
+            usedImages: [],
+            unusedImages: [],
+            deletedImages: [],
+            errors: [],
+          },
+          warning: "No images found in images/products or images/cats folders"
         }),
       };
     }
@@ -259,7 +294,9 @@ export async function handler(event) {
       }
     }
 
-    // 5. Generar reporte
+    // 5. Generar reporte (optimizado para evitar respuestas muy grandes)
+    console.log("Generating report...");
+    
     const report = {
       success: true,
       dryRun,
@@ -272,16 +309,22 @@ export async function handler(event) {
         errors: deletionErrors.length,
       },
       details: {
+        // Solo incluir info básica de imágenes en uso (sin detalles completos de uso)
         usedImages: usedImages.map((img) => ({
           path: img.path,
           usageCount: img.usedBy.length,
-          usedBy: img.usedBy,
+          // Solo incluir los primeros 3 usos para evitar respuestas muy grandes
+          usedBy: img.usedBy.slice(0, 3),
+          hasMoreUsages: img.usedBy.length > 3
         })),
         unusedImages: unusedImages,
         deletedImages: dryRun ? [] : deletedImages,
         errors: deletionErrors,
       },
     };
+
+    console.log("Report generated successfully");
+    console.log(`Response size estimate: ${JSON.stringify(report).length} bytes`);
 
     return {
       statusCode: 200,

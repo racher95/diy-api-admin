@@ -889,7 +889,24 @@ document.addEventListener("DOMContentLoaded", function () {
         body: JSON.stringify({ dryRun }),
       });
 
-      const result = await response.json();
+      // Verificar si la respuesta es exitosa
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`HTTP ${response.status}: ${errorText || 'Error del servidor'}`);
+      }
+
+      // Intentar parsear JSON, con manejo de error
+      let result;
+      try {
+        const responseText = await response.text();
+        if (!responseText || responseText.trim() === '') {
+          throw new Error('La respuesta del servidor está vacía');
+        }
+        result = JSON.parse(responseText);
+      } catch (parseError) {
+        console.error('Error parseando JSON:', parseError);
+        throw new Error(`Respuesta inválida del servidor: ${parseError.message}`);
+      }
 
       if (result.success) {
         lastScanResults = result;
@@ -915,7 +932,20 @@ document.addEventListener("DOMContentLoaded", function () {
     } catch (error) {
       console.error("Error en limpieza de imágenes:", error);
       statusDiv.className = "cleanup-status error";
-      statusDiv.innerHTML = `❌ Error: ${error.message}`;
+      
+      // Si fue un modo de eliminación (no dryRun), mostrar advertencia especial
+      if (!dryRun) {
+        statusDiv.innerHTML = `
+          ⚠️ Error de comunicación: ${error.message}<br>
+          <small style="color: #856404; background: #fff3cd; padding: 8px; display: inline-block; margin-top: 8px; border-radius: 4px;">
+            <strong>IMPORTANTE:</strong> Las imágenes pueden haberse eliminado correctamente del repositorio,
+            pero hubo un error al recibir la confirmación del servidor. 
+            Verifica tu repositorio en GitHub para confirmar.
+          </small>
+        `;
+      } else {
+        statusDiv.innerHTML = `❌ Error: ${error.message}`;
+      }
     } finally {
       // Rehabilitar botón de escaneo
       $("#scanImages").disabled = false;
