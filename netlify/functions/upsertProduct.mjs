@@ -1,4 +1,4 @@
-import { readJSON, writeJSON } from "./_shared.mjs";
+import { readJSON, commitRepoChanges } from "./_shared.mjs";
 
 export async function handler(event) {
   try {
@@ -61,9 +61,15 @@ export async function handler(event) {
       `Resolved ${relatedProducts.length} related products for product ${id}`
     );
 
+    const writes = [];
+    const pendingWrites = new Map();
+    const enqueueWrite = (path, content) => {
+      writes.push({ path, content });
+      pendingWrites.set(path, content);
+    };
+
     // 2. Guardar detalle completo del producto
     const pPath = `products/${id}.json`;
-    const curP = await readJSON(pPath);
     const detail = {
       id,
       name,
@@ -82,12 +88,7 @@ export async function handler(event) {
       updatedAt,
     };
 
-    await writeJSON(
-      pPath,
-      detail,
-      curP.sha,
-      `${op.toUpperCase()} product ${id}`
-    );
+    enqueueWrite(pPath, detail);
 
     // 3. Actualizar resumen en cats_products
     const cpPath = `cats_products/${categoryId}.json`;
@@ -103,12 +104,7 @@ export async function handler(event) {
     if (i >= 0) payload.products[i] = compact;
     else payload.products.push(compact);
 
-    await writeJSON(
-      cpPath,
-      payload,
-      curCP.sha,
-      `${op.toUpperCase()} product in category ${categoryId}`
-    );
+    enqueueWrite(cpPath, payload);
 
     // 4. Actualizar contador de categorías
     const cPath = "cats/cat.json";
@@ -129,15 +125,19 @@ export async function handler(event) {
       });
     }
 
-    await writeJSON(
-      cPath,
-      cats,
-      curC.sha,
-      `SYNC category ${categoryId} productCount`
-    );
+    enqueueWrite(cPath, cats);
 
     // Generar índices derivados
-    await generateDerivedIndices();
+    const derivedWrites = await generateDerivedIndices({ pendingWrites });
+    for (const entry of derivedWrites) {
+      enqueueWrite(entry.path, entry.content);
+    }
+
+    const message = `${op.toUpperCase()} product ${id}`;
+    await commitRepoChanges(
+      { writes },
+      `${message} and related indices`
+    );
 
     return {
       statusCode: 200,
@@ -146,7 +146,11 @@ export async function handler(event) {
     };
   } catch (e) {
     console.error("Error in upsertProduct:", e);
-    return { statusCode: 500, body: String(e) };
+    return {
+      statusCode: 500,
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ success: false, error: "internal_error" }),
+    };
   }
 }
 
@@ -196,10 +200,23 @@ async function resolveRelatedProducts(relatedProductIds) {
 }
 
 // Función para generar featured.json y hot_sales.json
-async function generateDerivedIndices() {
+export async function generateDerivedIndices({
+  pendingWrites = new Map(),
+  deletedPaths = new Set(),
+} = {}) {
   try {
+    const readWithOverrides = async (path) => {
+      if (deletedPaths.has(path)) {
+        return { json: null, sha: null };
+      }
+      if (pendingWrites.has(path)) {
+        return { json: pendingWrites.get(path), sha: null };
+      }
+      return readJSON(path);
+    };
+
     // Leer todas las categorías para obtener todos los productos
-    const catsResponse = await readJSON("cats/cat.json");
+    const catsResponse = await readWithOverrides("cats/cat.json");
     const categories = catsResponse.json || [];
 
     const allFeatured = [];
@@ -208,7 +225,7 @@ async function generateDerivedIndices() {
     // Procesar cada categoría
     for (const cat of categories) {
       try {
-        const catProductsResponse = await readJSON(
+        const catProductsResponse = await readWithOverrides(
           `cats_products/${cat.id}.json`
         );
         const catProducts = catProductsResponse.json?.products || [];
@@ -216,7 +233,7 @@ async function generateDerivedIndices() {
         // Para cada producto, leer su detalle completo para garantizar consistencia
         for (const product of catProducts) {
           try {
-            const detailResponse = await readJSON(
+            const detailResponse = await readWithOverrides(
               `products/${product.id}.json`
             );
             const detail = detailResponse.json;
@@ -290,23 +307,13 @@ async function generateDerivedIndices() {
     };
 
     // Guardar en nueva ubicación: /cats/ en lugar de /products/
-    const featuredResponse = await readJSON("cats/featured.json");
-    await writeJSON(
-      "cats/featured.json",
-      featuredCategory,
-      featuredResponse.sha,
-      "UPDATE featured products category"
-    );
-
-    const flashResponse = await readJSON("cats/hot_sales.json");
-    await writeJSON(
-      "cats/hot_sales.json",
-      hotSalesCategory,
-      flashResponse.sha,
-      "UPDATE hot sales category"
-    );
+    return [
+      { path: "cats/featured.json", content: featuredCategory },
+      { path: "cats/hot_sales.json", content: hotSalesCategory },
+    ];
   } catch (e) {
     console.error("Error generating derived indices:", e);
     // No fallar la operación principal si los índices fallan
+    return [];
   }
 }

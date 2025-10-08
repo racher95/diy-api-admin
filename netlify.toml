@@ -1,4 +1,19 @@
 [build]
-publish="public"
-functions="netlify/functions"
-command = ""
+  publish = "public"
+  functions = "netlify/functions"
+  command = "npm run build"
+
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
+
+[[headers]]
+  for = "/*"
+    [headers.values]
+      Content-Security-Policy = "default-src 'self'; connect-src 'self' https://*.github.io https://api.github.com https://api.netlify.com; img-src 'self' data: https://*.github.io; script-src 'self'; style-src 'self' 'unsafe-inline'; frame-ancestors 'none'"
+      Strict-Transport-Security = "max-age=63072000; includeSubDomains; preload"
+      X-Content-Type-Options = "nosniff"
+      X-Frame-Options = "DENY"
+      Referrer-Policy = "same-origin"
+      Permissions-Policy = "geolocation=(), microphone=(), camera=()"

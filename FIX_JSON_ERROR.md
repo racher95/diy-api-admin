@@ -186,6 +186,6 @@ Si tu operación excede estos límites, los cambios **se aplicarán** pero la re
 
 ---
 
-**Fecha:** 3 de octubre de 2025  
-**Estado:** ✅ Optimizado y listo  
+**Fecha:** 3 de octubre de 2025
+**Estado:** ✅ Optimizado y listo
 **Nota:** Haz commit y push manualmente cuando estés listo

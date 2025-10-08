@@ -27,6 +27,12 @@ https://racher95.github.io/diy-emercado-api/
 ```
 y presiona **Probar conexión**.
 
+Si el repositorio de datos aún no tiene la estructura mínima, el panel mostrará
+un asistente para crearla. Con el botón **Crear estructura inicial** se genera
+un commit automático con los archivos base (`cats/cat.json`, categorías
+derivadas y README) y marcadores para las carpetas principales (`cats_products/`,
+`products/`, `images/`, etc.).
+
 ## Funcionalidades Destacadas
 
 ### 🧹 Limpieza de Imágenes No Utilizadas
@@ -54,3 +60,33 @@ netlify dev
 ```
 
 > Este repo es sólo del *panel*. La API de datos vive en otro repo (p. ej. `diy-emercado-api`).
+
+## Flujo de publicación en Git
+
+- Trabaja siempre sobre la rama `main`, que es la consumida por Netlify y GitHub Pages.
+- Si clonaste este repositorio desde cero, añade tu remoto (solo la primera vez):
+
+  ```bash
+  git remote add origin git@github.com:<tu-usuario>/<tu-repo>.git
+  git remote -v           # verifica que apunte al repo correcto
+  ```
+
+- Trae los cambios más recientes del remoto y asegúrate de trabajar sobre `main`:
+
+  ```bash
+  git fetch origin
+  git checkout main
+  git pull origin main
+  ```
+
+- Realiza tus modificaciones, crea un commit y súbelo a GitHub:
+
+  ```bash
+  git status              # revisa los archivos modificados
+  git add <archivos>
+  git commit -m "feat: descripcion corta"
+  git push origin main
+  ```
+
+- Verifica en GitHub que el commit aparezca en `main` y que Netlify dispare un nuevo deploy preview o deploy de producción según corresponda.
+- Si necesitas subir una rama diferente (por ejemplo para PR), reemplaza `main` por el nombre de tu rama tanto al crearla como al hacer `push`.

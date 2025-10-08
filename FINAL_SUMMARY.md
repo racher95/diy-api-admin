@@ -235,24 +235,52 @@ Resultado: Formato no usado detectado ✅
 
 ## 🔄 Próximos Pasos
 
-1. **Commit y push** de los cambios:
+1. **Revisar estructura del repositorio con el panel**
+   - Después de conectar la API base, usa el bloque "Estructura del repo"
+     para verificar que existan los JSON iniciales.
+   - Si faltan archivos o carpetas, presiona **Crear estructura inicial**
+     (genera un commit `chore: bootstrap DIY API data structure`).
+
+2. **Configurar remoto (primera vez)**
    ```bash
+   git remote -v
+   git remote add origin https://github.com/tu-usuario/tu-repo.git
+   git branch -M main
+   ```
+   > Si `origin` ya existe, actualízalo con `git remote set-url origin <url-del-repo>`.
+
+3. **Actualizar la rama principal antes de publicar**
+   ```bash
+   git fetch origin
+   git pull --rebase origin main
+   ```
+   > Cambia `main` si tu repositorio usa otra rama (ej. `master`).
+
+4. **Preparar commit con los cambios**
+   ```bash
+   git status
    git add .
    git commit -m "feat: Complete image cleanup system with multi-format support"
-   git push
    ```
+   > Ajusta el mensaje según lo que cambiaste.
 
-2. **Netlify** desplegará automáticamente
+5. **Publicar en GitHub**
+   ```bash
+   git push -u origin main
+   ```
+   > En publicaciones futuras basta con `git push`. Usa la rama correspondiente (`main`, `master`, etc.).
 
-3. **Probar** en el admin panel real
+6. **Netlify** desplegará automáticamente
 
-4. **Escanear** imágenes en modo prueba
+7. **Probar** en el admin panel real
 
-5. **Eliminar** imágenes sin uso si es necesario
+8. **Escanear** imágenes en modo prueba
+
+9. **Eliminar** imágenes sin uso si es necesario
 
 ---
 
-**Fecha:** 3 de octubre de 2025  
-**Versión:** DIY API Admin v3.1  
-**Estado:** ✅ Producción Ready  
+**Fecha:** 3 de octubre de 2025
+**Versión:** DIY API Admin v3.1
+**Estado:** ✅ Producción Ready
 **Documentación:** README.md + CLEANUP_GUIDE.md

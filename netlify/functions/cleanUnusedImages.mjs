@@ -1,15 +1,15 @@
-import { readJSON, writeJSON, deleteFile, listFiles } from "./_shared.mjs";
+import { readJSON, deleteFile, listFiles, owner, repo } from "./_shared.mjs";
 
 export async function handler(event) {
   console.log("=== cleanUnusedImages function called ===");
-  
+
   try {
     if (event.httpMethod !== "POST") {
       console.log("Wrong HTTP method:", event.httpMethod);
-      return { 
-        statusCode: 405, 
+      return {
+        statusCode: 405,
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ success: false, error: "Method Not Allowed" })
+        body: JSON.stringify({ success: false, error: "Method Not Allowed" }),
       };
     }
 
@@ -134,10 +134,10 @@ export async function handler(event) {
                 Array.isArray(productDetail.images)
               ) {
                 productDetail.images.forEach((img, index) => {
-                  const imagePath = extractImagePath(img);
-                  if (imagePath) {
-                    imagesInUse.add(imagePath);
-                    if (!imageUsage[imagePath]) imageUsage[imagePath] = [];
+                const imagePath = extractImagePath(img);
+                if (imagePath) {
+                  imagesInUse.add(imagePath);
+                  if (!imageUsage[imagePath]) imageUsage[imagePath] = [];
                     imageUsage[imagePath].push({
                       type: "product_detail",
                       id: product.id,
@@ -194,7 +194,7 @@ export async function handler(event) {
     let allImages = [];
     let productsImages = [];
     let catsImages = [];
-    
+
     try {
       console.log("Listing images from images/products...");
       const productsImagesResponse = await listFiles("images/products");
@@ -205,7 +205,7 @@ export async function handler(event) {
       console.error("Error details:", error);
       // Continuar aunque falle esta carpeta
     }
-    
+
     try {
       console.log("Listing images from images/cats...");
       const catsImagesResponse = await listFiles("images/cats");
@@ -216,13 +216,15 @@ export async function handler(event) {
       console.error("Error details:", error);
       // Continuar aunque falle esta carpeta
     }
-    
+
     allImages = [...productsImages, ...catsImages];
     console.log(`  - Total: ${allImages.length} images`);
-    
+
     // Si no hay imágenes, puede ser un problema de configuración
     if (allImages.length === 0) {
-      console.warn("⚠️  No images found in repository. Check folder structure.");
+      console.warn(
+        "⚠️  No images found in repository. Check folder structure."
+      );
       return {
         statusCode: 200,
         headers: { "Content-Type": "application/json" },
@@ -243,7 +245,7 @@ export async function handler(event) {
             deletedImages: [],
             errors: [],
           },
-          warning: "No images found in images/products or images/cats folders"
+          warning: "No images found in images/products or images/cats folders",
         }),
       };
     }
@@ -253,16 +255,11 @@ export async function handler(event) {
     const usedImages = [];
 
     for (const imagePath of allImages) {
-      // Extraer solo el nombre del archivo del path completo (por si viene como img/archivo.jpg)
-      const fileName = imagePath.includes("/") 
-        ? imagePath.split("/").pop() 
-        : imagePath;
-
-      if (imagesInUse.has(fileName)) {
+      if (imagesInUse.has(imagePath)) {
         usedImages.push({
           path: imagePath,
-          fileName: fileName,
-          usedBy: imageUsage[fileName] || [],
+          fileName: imagePath.split("/").pop(),
+          usedBy: imageUsage[imagePath] || [],
         });
       } else {
         unusedImages.push(imagePath);
@@ -296,7 +293,7 @@ export async function handler(event) {
 
     // 5. Generar reporte (optimizado para evitar respuestas muy grandes)
     console.log("Generating report...");
-    
+
     const report = {
       success: true,
       dryRun,
@@ -315,7 +312,7 @@ export async function handler(event) {
           usageCount: img.usedBy.length,
           // Solo incluir los primeros 3 usos para evitar respuestas muy grandes
           usedBy: img.usedBy.slice(0, 3),
-          hasMoreUsages: img.usedBy.length > 3
+          hasMoreUsages: img.usedBy.length > 3,
         })),
         unusedImages: unusedImages,
         deletedImages: dryRun ? [] : deletedImages,
@@ -324,7 +321,9 @@ export async function handler(event) {
     };
 
     console.log("Report generated successfully");
-    console.log(`Response size estimate: ${JSON.stringify(report).length} bytes`);
+    console.log(
+      `Response size estimate: ${JSON.stringify(report).length} bytes`
+    );
 
     return {
       statusCode: 200,
@@ -336,11 +335,7 @@ export async function handler(event) {
     return {
       statusCode: 500,
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        success: false,
-        error: "Internal server error",
-        message: error.message,
-      }),
+      body: JSON.stringify({ success: false, error: "internal_error" }),
     };
   }
 }
@@ -350,31 +345,38 @@ function extractImagePath(imageUrl) {
   if (!imageUrl) return null;
 
   try {
-    // Si es una URL completa, extraer el nombre del archivo
+    const expectedHost = `${owner}.github.io`;
+    const allowedPrefix = `${repo}`;
+
     if (imageUrl.startsWith("http://") || imageUrl.startsWith("https://")) {
       const url = new URL(imageUrl);
-      const pathname = url.pathname;
-      
-      // Extraer solo el nombre del archivo (última parte después del último /)
-      const parts = pathname.split("/");
-      const fileName = parts[parts.length - 1];
-      
-      if (fileName) {
-        return fileName;
+      if (url.hostname !== expectedHost) return null;
+
+      const prefix = allowedPrefix ? `/${allowedPrefix}/` : "/";
+      if (!url.pathname.startsWith(prefix)) {
+        return null;
       }
+
+      const relativePath = url.pathname.slice(prefix.length);
+      return sanitizeRelativePath(relativePath);
     }
 
-    // Si ya es solo un nombre de archivo (sin protocolo ni barras)
-    if (!imageUrl.includes("/")) {
-      return imageUrl;
-    }
-
-    // Si es una ruta relativa (contiene / pero no es URL completa)
-    const parts = imageUrl.split("/");
-    return parts[parts.length - 1];
-    
+    return sanitizeRelativePath(imageUrl);
   } catch (error) {
     console.warn(`Error parsing image URL: ${imageUrl}`, error.message);
     return null;
   }
+}
+
+function sanitizeRelativePath(pathname) {
+  if (!pathname) return null;
+  const withoutQuery = pathname.split("?")[0];
+  const cleaned = withoutQuery.replace(/^\/+/, "");
+  if (!cleaned.startsWith("images/")) {
+    return null;
+  }
+  if (cleaned.includes("..")) {
+    return null;
+  }
+  return cleaned;
 }

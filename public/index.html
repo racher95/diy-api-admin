@@ -18,8 +18,48 @@
       /></label>
       <div class="actions">
         <button id="testApi">Probar conexión</button
-        ><span id="apiStatus" class="muted"></span
-        ><span id="apiDetected" class="pill"></span>
+        ><span
+          id="apiStatus"
+          class="muted"
+          role="status"
+          aria-live="polite"
+        ></span
+        ><span
+          id="apiDetected"
+          class="pill"
+          role="status"
+          aria-live="polite"
+        ></span>
+      </div>
+      <div id="repoStructureSection" class="structure-section" hidden>
+        <p
+          id="repoStructureSummary"
+          class="muted"
+          role="status"
+          aria-live="polite"
+        ></p>
+        <div class="structure-columns">
+          <div class="structure-column">
+            <h4>Archivos faltantes</h4>
+            <ul id="repoMissingFiles" class="structure-list"></ul>
+          </div>
+          <div class="structure-column">
+            <h4>Carpetas faltantes</h4>
+            <ul id="repoMissingFolders" class="structure-list"></ul>
+          </div>
+          <div class="structure-column" id="repoInvalidColumn" hidden>
+            <h4>Archivos inválidos</h4>
+            <ul id="repoInvalidFiles" class="structure-list"></ul>
+          </div>
+        </div>
+        <div class="structure-actions">
+          <button type="button" id="initializeRepo" class="secondary-btn">
+            Crear estructura inicial
+          </button>
+          <p id="initializeHint" class="muted small-text">
+            Se creará un commit automático con la estructura básica.
+          </p>
+        </div>
       </div>
     </fieldset>
     <fieldset>
@@ -34,7 +74,11 @@
         /></label>
       </div>
       <div class="actions">
-        <button id="upload">Subir</button><span id="uploadStatus"></span>
+        <button id="upload">Subir</button><span
+          id="uploadStatus"
+          role="status"
+          aria-live="polite"
+        ></span>
       </div>
       <img id="preview" class="preview" />
     </fieldset>
@@ -48,7 +92,12 @@
       </div>
       <div class="actions">
         <button id="loadCat">Cargar datos de esta ID</button
-        ><span id="catPreview" class="muted"></span>
+        ><span
+          id="catPreview"
+          class="muted"
+          role="status"
+          aria-live="polite"
+        ></span>
       </div>
       <label
         >Descripción <input id="catDesc" placeholder="Descripción corta"
@@ -77,7 +126,11 @@
         <label class="inline"
           ><input type="checkbox" id="cascadeCat" /> Eliminar también productos
           de esta categoría</label
-        ><span id="catStatus"></span>
+        ><span
+          id="catStatus"
+          role="status"
+          aria-live="polite"
+        ></span>
       </div>
     </fieldset>
     <fieldset>
@@ -93,7 +146,12 @@
       </div>
       <div class="actions">
         <button id="loadProd">Cargar datos de producto</button
-        ><span id="prodPreview" class="muted"></span>
+        ><span
+          id="prodPreview"
+          class="muted"
+          role="status"
+          aria-live="polite"
+        ></span>
       </div>
       <div class="row">
         <label
@@ -235,9 +293,12 @@
         ><label>Moneda (currency) <input id="pCurr" value="UYU" /></label>
       </div>
       <div class="actions">
-        <button id="saveProd">Guardar producto</button
-        ><button id="deleteProd" class="danger-btn">Eliminar producto</button
-        ><span id="pStatus"></span>
+        <button id="saveProd">Guardar producto</button>
+        <button id="resetProd" type="button" class="secondary-btn">
+          Limpiar formulario
+        </button>
+        <button id="deleteProd" class="danger-btn">Eliminar producto</button>
+        <span id="pStatus" role="status" aria-live="polite"></span>
       </div>
     </fieldset>
 
@@ -267,7 +328,12 @@
         </button>
       </div>
 
-      <div id="cleanupStatus" class="cleanup-status"></div>
+      <div
+        id="cleanupStatus"
+        class="cleanup-status"
+        role="status"
+        aria-live="polite"
+      ></div>
 
       <div id="cleanupResults" class="cleanup-results"></div>
     </fieldset>

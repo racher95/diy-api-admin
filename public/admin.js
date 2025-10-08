@@ -4,6 +4,97 @@ const $ = (s) => document.querySelector(s);
 const apiBaseInput = $("#apiBase");
 const apiStatus = $("#apiStatus");
 const apiDetected = $("#apiDetected");
+const repoStructureSection = $("#repoStructureSection");
+const repoStructureSummary = $("#repoStructureSummary");
+const repoMissingFilesList = $("#repoMissingFiles");
+const repoMissingFoldersList = $("#repoMissingFolders");
+const repoInvalidColumn = $("#repoInvalidColumn");
+const repoInvalidFilesList = $("#repoInvalidFiles");
+const initializeRepoBtn = $("#initializeRepo");
+const initializeHint = $("#initializeHint");
+
+function clearElement(element) {
+  if (!element) return;
+  element.replaceChildren();
+}
+
+function createElement(tag, { className, text, attrs = {}, children = [] } = {}) {
+  const el = document.createElement(tag);
+  if (className) el.className = className;
+  if (text !== undefined) el.textContent = text;
+  for (const [key, value] of Object.entries(attrs)) {
+    if (value !== undefined && value !== null) {
+      el.setAttribute(key, value);
+    }
+  }
+  for (const child of children) {
+    if (child) {
+      el.appendChild(child);
+    }
+  }
+  return el;
+}
+
+function setText(element, text) {
+  if (!element) return;
+  element.textContent = text;
+}
+
+const FALLBACK_IMAGE_DATA =
+  "data:image/svg+xml,<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"60\" height=\"60\" viewBox=\"0 0 24 24\" fill=\"%23ddd\"><rect width=\"24\" height=\"24\" fill=\"%23f5f5f5\"/><text x=\"12\" y=\"12\" text-anchor=\"middle\" dominant-baseline=\"middle\" font-size=\"10\" fill=\"%23999\">IMG</text></svg>";
+
+function formatErrorMessage(message) {
+  if (!message) return "Error desconocido";
+  if (message === "internal_error") return "Error interno del servidor";
+  if (message === "confirmation_required")
+    return "Se requiere confirmación";
+  if (message === "method_not_allowed") return "Método no permitido";
+  return message;
+}
+
+function fillList(listElement, items, emptyLabel = "Sin elementos") {
+  if (!listElement) return;
+  clearElement(listElement);
+  if (!items || items.length === 0) {
+    listElement.appendChild(createElement("li", { text: emptyLabel }));
+    return;
+  }
+
+  items.forEach((item) => {
+    if (typeof item === "string") {
+      listElement.appendChild(createElement("li", { text: item }));
+      return;
+    }
+
+    const description = item.description
+      ? ` – ${item.description}`
+      : "";
+    listElement.appendChild(
+      createElement("li", { text: `${item.path || item} ${description}`.trim() })
+    );
+  });
+}
+
+async function fetchJson(url, options = {}) {
+  const response = await fetch(url, options);
+  const text = await response.text();
+  let payload = null;
+  if (text) {
+    try {
+      payload = JSON.parse(text);
+    } catch (error) {
+      throw new Error(`Respuesta inválida del servidor: ${error.message}`);
+    }
+  }
+  if (!response.ok) {
+    const message = payload?.error || `HTTP ${response.status}`;
+    const err = new Error(message);
+    err.status = response.status;
+    err.payload = payload;
+    throw err;
+  }
+  return payload;
+}
 
 // Variables para almacenar URLs de imágenes
 let categoryImageUrl = "";
@@ -78,16 +169,34 @@ async function uploadMultipleImages(files, folder = "images/products") {
 // Función para mostrar preview de imágenes
 function showImagePreview(urls, containerId, isProduct = false) {
   const container = $(containerId);
-  container.innerHTML = "";
+  if (!container) return;
+  clearElement(container);
 
   urls.forEach((url, index) => {
-    const div = document.createElement("div");
-    div.className = "image-item";
-    div.innerHTML = `
-      <img src="${url}" alt="Preview ${index + 1}">
-      <button class="remove-btn" onclick="removeImage('${containerId}', ${index}, ${isProduct})" title="Eliminar">×</button>
-    `;
-    container.appendChild(div);
+    const wrapper = createElement("div", { className: "image-item" });
+    const img = createElement("img", {
+      attrs: { src: url, alt: `Preview ${index + 1}` },
+    });
+    img.addEventListener("error", () => {
+      img.src = FALLBACK_IMAGE_DATA;
+    });
+
+    const removeBtn = createElement("button", {
+      className: "remove-btn",
+      text: "×",
+      attrs: {
+        type: "button",
+        title: "Eliminar",
+        "aria-label": "Eliminar imagen",
+      },
+    });
+    removeBtn.addEventListener("click", () => {
+      removeImage(containerId, index, isProduct);
+    });
+
+    wrapper.appendChild(img);
+    wrapper.appendChild(removeBtn);
+    container.appendChild(wrapper);
   });
 }
 
@@ -99,7 +208,8 @@ function removeImage(containerId, index, isProduct) {
     updateProductUrlInputs();
   } else {
     categoryImageUrl = "";
-    $(containerId).innerHTML = "";
+    const container = $(containerId);
+    if (container) clearElement(container);
     $("#catImg").value = "";
   }
 }
@@ -173,64 +283,84 @@ function renderSearchResults(products, searchInfo = {}) {
     return;
   }
 
+  clearElement(resultsContainer);
+
   if (products.length === 0) {
-    const searchHint = searchInfo.isIdSearch
+    const hintText = searchInfo.isIdSearch
       ? `No se encontró ningún producto con ID "${searchInfo.query}"`
       : `No se encontraron productos con "${searchInfo.query}"`;
-
-    resultsContainer.innerHTML = `<div class="search-no-results">${searchHint}</div>`;
+    const noResults = createElement("div", {
+      className: "search-no-results",
+      text: hintText,
+    });
+    resultsContainer.appendChild(noResults);
     resultsContainer.classList.add("show");
     return;
   }
 
-  // Mostrar información de búsqueda si es por ID
-  let searchHeader = "";
-  if (searchInfo.isIdSearch && products.length > 0) {
-    searchHeader = `<div class="search-info">🔍 Búsqueda por ID: ${searchInfo.query}</div>`;
+  if (searchInfo.isIdSearch && searchInfo.query) {
+    const info = createElement("div", {
+      className: "search-info",
+      text: `🔍 Búsqueda por ID: ${searchInfo.query}`,
+    });
+    resultsContainer.appendChild(info);
   }
 
-  const html =
-    searchHeader +
-    products
-      .map(
-        (product) => `
-    <div class="search-result-item" data-product-id="${product.id}">
-      <img src="${product.image}" alt="${
-          product.name
-        }" class="search-result-image" onerror="this.src='data:image/svg+xml,<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"50\" height=\"50\" viewBox=\"0 0 24 24\" fill=\"%23ddd\"><rect width=\"24\" height=\"24\" fill=\"%23f5f5f5\"/><text x=\"12\" y=\"12\" text-anchor=\"middle\" dominant-baseline=\"middle\" font-size=\"10\" fill=\"%23999\">IMG</text></svg>'">
-      <div class="search-result-info">
-        <h4 class="search-result-name">${
-          product.name
-        } <span class="product-id">#${product.id}</span></h4>
-        <p class="search-result-meta">${
-          product.category
-        } • <span class="search-result-price">$${product.cost.toLocaleString()} ${
-          product.currency
-        }</span></p>
-      </div>
-      <button class="search-result-add-btn" type="button">➕ Agregar</button>
-    </div>
-  `
-      )
-      .join("");
-
-  resultsContainer.innerHTML = html;
-  resultsContainer.classList.add("show");
-
-  // Agregar event listeners a los botones
-  resultsContainer
-    .querySelectorAll(".search-result-add-btn")
-    .forEach((button) => {
-      button.addEventListener("click", (e) => {
-        e.stopPropagation(); // Prevenir propagación del evento
-        const item = button.closest(".search-result-item");
-        const productId = parseInt(item.dataset.productId);
-        const product = products.find((p) => p.id === productId);
-        if (product) {
-          addRelatedProduct(product);
-        }
-      });
+  products.forEach((product) => {
+    const item = createElement("div", {
+      className: "search-result-item",
+      attrs: { "data-product-id": product.id },
     });
+
+    const img = createElement("img", {
+      className: "search-result-image",
+      attrs: {
+        src: product.image,
+        alt: product.name,
+      },
+    });
+    img.addEventListener("error", () => {
+      img.src = FALLBACK_IMAGE_DATA;
+    });
+
+    const info = createElement("div", { className: "search-result-info" });
+    const nameHeading = createElement("h4", { className: "search-result-name" });
+    nameHeading.appendChild(document.createTextNode(product.name));
+    const idBadge = createElement("span", {
+      className: "product-id",
+      text: `#${product.id}`,
+    });
+    nameHeading.appendChild(document.createTextNode(" "));
+    nameHeading.appendChild(idBadge);
+
+    const meta = createElement("p", { className: "search-result-meta" });
+    meta.appendChild(document.createTextNode(`${product.category} • `));
+    const price = createElement("span", {
+      className: "search-result-price",
+      text: `$${product.cost.toLocaleString()} ${product.currency}`,
+    });
+    meta.appendChild(price);
+
+    info.appendChild(nameHeading);
+    info.appendChild(meta);
+
+    const addButton = createElement("button", {
+      className: "search-result-add-btn",
+      text: "➕ Agregar",
+      attrs: { type: "button" },
+    });
+    addButton.addEventListener("click", (event) => {
+      event.stopPropagation();
+      addRelatedProduct(product);
+    });
+
+    item.appendChild(img);
+    item.appendChild(info);
+    item.appendChild(addButton);
+    resultsContainer.appendChild(item);
+  });
+
+  resultsContainer.classList.add("show");
 }
 
 // Agregar producto a la lista de relacionados
@@ -268,45 +398,205 @@ function removeRelatedProduct(productId) {
 function renderSelectedRelatedProducts() {
   const container = $("#selectedRelated");
 
+  clearElement(container);
+
   if (selectedRelatedProducts.length === 0) {
-    container.innerHTML =
-      '<p class="empty-state">No hay productos relacionados seleccionados</p>';
+    const empty = createElement("p", {
+      className: "empty-state",
+      text: "No hay productos relacionados seleccionados",
+    });
+    container.appendChild(empty);
     return;
   }
 
-  const html = `
-    <div class="related-products-count">${
-      selectedRelatedProducts.length
-    } producto(s) relacionado(s)</div>
-    ${selectedRelatedProducts
-      .map(
-        (product) => `
-      <div class="related-product-item">
-        <img src="${product.image}" alt="${
-          product.name
-        }" class="related-product-image" onerror="this.src='data:image/svg+xml,<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"60\" height=\"60\" viewBox=\"0 0 24 24\" fill=\"%23ddd\"><rect width=\"24\" height=\"24\" fill=\"%23f5f5f5\"/><text x=\"12\" y=\"12\" text-anchor=\"middle\" dominant-baseline=\"middle\" font-size=\"10\" fill=\"%23999\">IMG</text></svg>'">
-        <div class="related-product-info">
-          <h4 class="related-product-name">${product.name}</h4>
-          <p class="related-product-meta">${
-            product.category
-          } • $${product.cost.toLocaleString()} ${product.currency}</p>
-        </div>
-        <button type="button" class="remove-related-btn" onclick="removeRelatedProduct(${
-          product.id
-        })">Remover</button>
-      </div>
-    `
-      )
-      .join("")}
-  `;
+  const count = createElement("div", {
+    className: "related-products-count",
+    text: `${selectedRelatedProducts.length} producto(s) relacionado(s)`,
+  });
+  container.appendChild(count);
 
-  container.innerHTML = html;
+  selectedRelatedProducts.forEach((product) => {
+    const item = createElement("div", { className: "related-product-item" });
+
+    const img = createElement("img", {
+      className: "related-product-image",
+      attrs: { src: product.image, alt: product.name },
+    });
+    img.addEventListener("error", () => {
+      img.src = FALLBACK_IMAGE_DATA;
+    });
+
+    const info = createElement("div", { className: "related-product-info" });
+    const title = createElement("h4", {
+      className: "related-product-name",
+      text: product.name,
+    });
+    const meta = createElement("p", {
+      className: "related-product-meta",
+      text: `${product.category} • $${product.cost.toLocaleString()} ${product.currency}`,
+    });
+    info.appendChild(title);
+    info.appendChild(meta);
+
+    const removeBtn = createElement("button", {
+      className: "remove-related-btn",
+      text: "Remover",
+      attrs: { type: "button" },
+    });
+    removeBtn.addEventListener("click", () => {
+      removeRelatedProduct(product.id);
+    });
+
+    item.appendChild(img);
+    item.appendChild(info);
+    item.appendChild(removeBtn);
+
+    container.appendChild(item);
+  });
 }
+
 
 // Cargar productos relacionados desde datos existentes
 function loadRelatedProducts(relatedProducts) {
   selectedRelatedProducts = relatedProducts || [];
   renderSelectedRelatedProducts();
+}
+
+const initializeButtonDefaultLabel = initializeRepoBtn?.textContent || "Crear estructura inicial";
+
+async function refreshRepoStructure() {
+  if (!repoStructureSection) return;
+
+  repoStructureSection.hidden = false;
+  setText(repoStructureSummary, "Revisando estructura…");
+  fillList(repoMissingFilesList, []);
+  fillList(repoMissingFoldersList, []);
+  if (repoInvalidFilesList) fillList(repoInvalidFilesList, []);
+  if (repoInvalidColumn) repoInvalidColumn.hidden = true;
+  toggleInitializeButton({ disabled: true, hidden: true });
+  if (initializeHint) initializeHint.hidden = true;
+
+  try {
+    const report = await fetchJson("/.netlify/functions/checkRepo", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: "{}",
+    });
+    renderRepoStructureReport(report);
+  } catch (error) {
+    renderRepoStructureError(
+      formatErrorMessage(error.message) || "No se pudo verificar el repositorio"
+    );
+  }
+}
+
+function renderRepoStructureReport(report) {
+  if (!repoStructureSection) return;
+  if (!report?.success) {
+    renderRepoStructureError("El servidor no devolvió un estado válido");
+    return;
+  }
+
+  const missingFiles = report.files?.missing || [];
+  const missingFolders = report.folders?.missing || [];
+  const invalidFiles = report.files?.invalid || [];
+
+  const initialized = Boolean(report.initialized);
+
+  if (initialized) {
+    setText(repoStructureSummary, "Estructura lista ✔");
+    fillList(repoMissingFilesList, [], "Sin pendientes");
+    fillList(repoMissingFoldersList, [], "Sin pendientes");
+    if (invalidFiles.length > 0 && repoInvalidFilesList) {
+      if (repoInvalidColumn) repoInvalidColumn.hidden = false;
+      fillList(repoInvalidFilesList, invalidFiles, "Sin archivos inválidos");
+    } else if (repoInvalidColumn) {
+      repoInvalidColumn.hidden = true;
+    }
+    toggleInitializeButton({ hidden: true });
+    if (initializeHint) initializeHint.hidden = true;
+    return;
+  }
+
+  const missingSummary = [];
+  if (missingFiles.length) {
+    missingSummary.push(`${missingFiles.length} archivo(s)`);
+  }
+  if (missingFolders.length) {
+    missingSummary.push(`${missingFolders.length} carpeta(s)`);
+  }
+
+  const summaryText =
+    missingSummary.length > 0
+      ? `Faltan ${missingSummary.join(" y ")}`
+      : "Sin estructura detectada";
+
+  setText(repoStructureSummary, `⚠️ ${summaryText}`);
+  fillList(repoMissingFilesList, missingFiles, "Sin pendientes");
+  fillList(repoMissingFoldersList, missingFolders, "Sin pendientes");
+
+  if (invalidFiles.length > 0 && repoInvalidFilesList) {
+    if (repoInvalidColumn) repoInvalidColumn.hidden = false;
+    fillList(repoInvalidFilesList, invalidFiles, "Sin archivos inválidos");
+  } else if (repoInvalidColumn) {
+    repoInvalidColumn.hidden = true;
+  }
+
+  toggleInitializeButton({ disabled: false, hidden: false });
+  if (initializeHint) initializeHint.hidden = false;
+}
+
+function renderRepoStructureError(message) {
+  if (!repoStructureSection) return;
+  repoStructureSection.hidden = false;
+  setText(repoStructureSummary, `❌ ${formatErrorMessage(message)}`);
+  fillList(repoMissingFilesList, [], "Sin información disponible");
+  fillList(repoMissingFoldersList, [], "Sin información disponible");
+  if (repoInvalidFilesList) fillList(repoInvalidFilesList, []);
+  if (repoInvalidColumn) repoInvalidColumn.hidden = true;
+  toggleInitializeButton({ disabled: true, hidden: false });
+  if (initializeHint) initializeHint.hidden = false;
+}
+
+function toggleInitializeButton({ disabled = false, hidden = false }) {
+  if (!initializeRepoBtn) return;
+  initializeRepoBtn.disabled = disabled;
+  initializeRepoBtn.hidden = hidden;
+  if (!hidden && !disabled) {
+    initializeRepoBtn.textContent = initializeButtonDefaultLabel;
+  }
+}
+
+async function initializeRepositoryStructure() {
+  if (!initializeRepoBtn) return;
+  initializeRepoBtn.disabled = true;
+  initializeRepoBtn.textContent = "Creando estructura…";
+  setText(repoStructureSummary, "Creando estructura inicial…");
+
+  try {
+    const response = await fetchJson("/.netlify/functions/initializeRepo", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ confirm: true }),
+    });
+
+    if (!response?.success) {
+      throw new Error(response?.error || "No se pudo inicializar");
+    }
+
+    setText(
+      repoStructureSummary,
+      "Estructura creada. Verificando nuevamente…"
+    );
+    await refreshRepoStructure();
+  } catch (error) {
+    renderRepoStructureError(
+      formatErrorMessage(error.message) || "Error al crear la estructura"
+    );
+  } finally {
+    initializeRepoBtn.disabled = false;
+    initializeRepoBtn.textContent = initializeButtonDefaultLabel;
+  }
 }
 
 // Inicialización cuando se carga el DOM
@@ -323,6 +613,9 @@ document.addEventListener("DOMContentLoaded", function () {
     }
 
     apiStatus.textContent = "Probando…";
+    if (repoStructureSection) {
+      repoStructureSection.hidden = true;
+    }
     try {
       const r = await fetch(new URL("cats/cat.json", base).toString(), {
         cache: "no-store",
@@ -334,11 +627,21 @@ document.addEventListener("DOMContentLoaded", function () {
       apiDetected.textContent = Array.isArray(cats)
         ? `${cats.length} categorías`
         : "OK";
+      await refreshRepoStructure();
     } catch (e) {
       apiStatus.textContent = "No se pudo leer cats/cat.json (" + e + ")";
       apiDetected.textContent = "";
+      if (repoStructureSection) {
+        repoStructureSection.hidden = true;
+      }
     }
   };
+
+  if (initializeRepoBtn) {
+    initializeRepoBtn.addEventListener("click", () => {
+      initializeRepositoryStructure();
+    });
+  }
 
   // Event listeners para subida de imagen única
   $("#upload").onclick = async () => {
@@ -354,18 +657,42 @@ document.addEventListener("DOMContentLoaded", function () {
     const filename = $("#filename").value.trim() || file.name;
     $("#uploadStatus").textContent = "Subiendo…";
 
-    const r = await fetch("/.netlify/functions/uploadImage", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ folder, filename, dataUrl }),
-    });
-    const j = await r.json().catch(() => ({}));
-    if (j.ok) {
-      $("#uploadStatus").innerHTML = "OK → " + j.url;
-      if (folder.includes("products")) $("#pImg").value = j.url;
-      if (folder.includes("cats")) $("#catImg").value = j.url;
-    } else {
-      $("#uploadStatus").textContent = "Error: " + (j || (await r.text()));
+    try {
+      const uploadResult = await fetchJson("/.netlify/functions/uploadImage", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ folder, filename, dataUrl }),
+      });
+
+      if (uploadResult?.ok) {
+        const statusEl = $("#uploadStatus");
+        if (statusEl) {
+          clearElement(statusEl);
+          statusEl.appendChild(createElement("span", { text: "OK → " }));
+          statusEl.appendChild(
+            createElement("a", {
+              text: uploadResult.url,
+              attrs: {
+                href: uploadResult.url,
+                target: "_blank",
+                rel: "noopener noreferrer",
+              },
+            })
+          );
+        }
+        if (folder.includes("products")) $("#pImg").value = uploadResult.url;
+        if (folder.includes("cats")) $("#catImg").value = uploadResult.url;
+      } else {
+        setText(
+          $("#uploadStatus"),
+          "Error: No se pudo subir la imagen"
+        );
+      }
+    } catch (error) {
+      setText(
+        $("#uploadStatus"),
+        `Error: ${formatErrorMessage(error.message)}`
+      );
     }
   };
 
@@ -686,11 +1013,21 @@ document.addEventListener("DOMContentLoaded", function () {
 
     // Mostrar errores si los hay
     if (validationErrors.length > 0) {
-      $(
-        "#pStatus"
-      ).innerHTML = `<span style="color: red;">❌ Errores:<br>• ${validationErrors.join(
-        "<br>• "
-      )}</span>`;
+      const statusEl = $("#pStatus");
+      if (statusEl) {
+        clearElement(statusEl);
+        statusEl.appendChild(
+          createElement("span", {
+            className: "error-heading",
+            text: "❌ Errores:",
+          })
+        );
+        const list = createElement("ul", { className: "error-list" });
+        validationErrors.forEach((err) => {
+          list.appendChild(createElement("li", { text: err }));
+        });
+        statusEl.appendChild(list);
+      }
       return;
     }
 
@@ -735,16 +1072,32 @@ document.addEventListener("DOMContentLoaded", function () {
       })),
     });
 
-    $("#pStatus").textContent = "Guardando…";
-    const r = await fetch("/.netlify/functions/upsertProduct", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
-    });
-    $("#pStatus").textContent = r.ok
-      ? "OK"
-      : "Error " + r.status + " " + (await r.text());
+    setText($("#pStatus"), "Guardando…");
+    try {
+      await fetchJson("/.netlify/functions/upsertProduct", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      setText($("#pStatus"), "OK");
+    } catch (error) {
+      setText(
+        $("#pStatus"),
+        `Error: ${formatErrorMessage(error.message)}`
+      );
+    }
   };
+
+  const resetButton = $("#resetProd");
+  if (resetButton) {
+    resetButton.onclick = () => {
+      resetForm();
+      const preview = $("#prodPreview");
+      if (preview) {
+        preview.textContent = "Formulario listo para crear un nuevo producto.";
+      }
+    };
+  }
 
   $("#deleteProd").onclick = async () => {
     const id = +$("#pId").value;
@@ -755,35 +1108,49 @@ document.addEventListener("DOMContentLoaded", function () {
     }
     if (!confirm(`¿Eliminar producto ${id}? Esta acción no se puede deshacer.`))
       return;
-    $("#pStatus").textContent = "Eliminando…";
-    const r = await fetch("/.netlify/functions/deleteProduct", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ id, categoryId }),
-    });
-    $("#pStatus").textContent = r.ok
-      ? "Producto eliminado"
-      : "Error " + r.status + " " + (await r.text());
+    setText($("#pStatus"), "Eliminando…");
+    try {
+      await fetchJson("/.netlify/functions/deleteProduct", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id, categoryId }),
+      });
+      setText($("#pStatus"), "Producto eliminado");
+    } catch (error) {
+      setText(
+        $("#pStatus"),
+        `Error: ${formatErrorMessage(error.message)}`
+      );
+    }
   };
 
   // Funcionalidad para toggle de flash sale
-  $("#pFlashActive").onchange = function () {
+  function toggleFlashSaleFields() {
     const flashFields = $("#flashSaleFields");
-    if (this.checked) {
+    const toggle = $("#pFlashActive");
+    if (!flashFields || !toggle) return;
+
+    if (toggle.checked) {
       flashFields.style.display = "block";
       flashFields.classList.add("show");
     } else {
       flashFields.style.display = "none";
       flashFields.classList.remove("show");
-      // Limpiar campos cuando se desactiva
       $("#pFlashPrice").value = "";
       $("#pFlashStart").value = "";
       $("#pFlashEnd").value = "";
     }
-  };
+  }
+
+  const flashToggle = $("#pFlashActive");
+  if (flashToggle) {
+    flashToggle.onchange = toggleFlashSaleFields;
+  }
+
+  toggleFlashSaleFields();
 
   // Funcionalidad para reset de formulario
-  function resetForm() {
+function resetForm() {
     // Limpiar campos básicos
     $("#pId").value = "";
     $("#pName").value = "";
@@ -793,7 +1160,7 @@ document.addEventListener("DOMContentLoaded", function () {
     $("#pImgs").value = "";
     $("#pCatId").value = "";
     $("#pCatName").value = "";
-    $("#pStatus").innerHTML = "";
+    clearElement($("#pStatus"));
 
     // Limpiar campos de promoción
     $("#pFeatured").checked = false;
@@ -806,15 +1173,273 @@ document.addEventListener("DOMContentLoaded", function () {
 
     // Limpiar imágenes cargadas
     productImageUrls = [];
-    $("#prodImagePreview").innerHTML = "";
+    const previewContainer = $("#prodImagePreview");
+    if (previewContainer) clearElement(previewContainer);
 
     // Limpiar productos relacionados
     selectedRelatedProducts = [];
-    $("#selectedRelatedProducts").innerHTML = "";
+    renderSelectedRelatedProducts();
 
     // Ocultar campos de flash sale
     toggleFlashSaleFields();
+}
+
+function renderCleanupResults(result) {
+  const resultsDiv = $("#cleanupResults");
+  if (!resultsDiv) return;
+  clearElement(resultsDiv);
+
+  const summary = createElement("div", { className: "results-summary" });
+  summary.appendChild(
+    createElement("h3", {
+      text: `📊 Resumen del ${result.dryRun ? "Escaneo" : "Limpieza"}`,
+    })
+  );
+
+  const grid = createElement("div", { className: "summary-grid" });
+  grid.appendChild(
+    buildSummaryItem(result.summary.totalImagesInFolder, "Total de Imágenes")
+  );
+  grid.appendChild(
+    buildSummaryItem(result.summary.imagesInUse, "En Uso", "#28a745")
+  );
+  grid.appendChild(
+    buildSummaryItem(result.summary.unusedImages, "Sin Uso", "#ffc107")
+  );
+  if (!result.dryRun) {
+    grid.appendChild(
+      buildSummaryItem(result.summary.deletedImages, "Eliminadas", "#dc3545")
+    );
   }
+  summary.appendChild(grid);
+  resultsDiv.appendChild(summary);
+
+  const tabsContainer = createElement("div", { className: "results-tabs" });
+  resultsDiv.appendChild(tabsContainer);
+
+  const tabContents = new Map();
+
+  function addTab(key, label, contentElement, isActive = false) {
+    const button = createElement("button", {
+      className: `tab-button${isActive ? " active" : ""}`,
+      text: label,
+      attrs: { type: "button", "data-tab": key },
+    });
+    tabsContainer.appendChild(button);
+
+    const content = createElement("div", {
+      className: `tab-content${isActive ? " active" : ""}`,
+      attrs: { id: `tab-${key}` },
+    });
+    content.appendChild(contentElement);
+    resultsDiv.appendChild(content);
+    tabContents.set(key, content);
+
+    button.addEventListener("click", () => {
+      tabsContainer
+        .querySelectorAll(".tab-button")
+        .forEach((btn) => btn.classList.remove("active"));
+      button.classList.add("active");
+      tabContents.forEach((node, mapKey) => {
+        if (mapKey === key) node.classList.add("active");
+        else node.classList.remove("active");
+      });
+    });
+  }
+
+  addTab(
+    "unused",
+    `🗑️ Sin Uso (${result.details.unusedImages.length})`,
+    buildUnusedImagesSection(result.details.unusedImages, result.dryRun),
+    true
+  );
+
+  addTab(
+    "used",
+    `✅ En Uso (${result.details.usedImages.length})`,
+    buildUsedImagesSection(result.details.usedImages)
+  );
+
+  if (result.details.errors.length > 0) {
+    addTab(
+      "errors",
+      `❌ Errores (${result.details.errors.length})`,
+      buildErrorsSection(result.details.errors)
+    );
+  }
+}
+
+function buildSummaryItem(value, label, color) {
+  const item = createElement("div", { className: "summary-item" });
+  const attrs = color ? { style: `color: ${color};` } : {};
+  item.appendChild(
+    createElement("span", {
+      className: "number",
+      text: String(value),
+      attrs,
+    })
+  );
+  item.appendChild(createElement("span", { className: "label", text: label }));
+  return item;
+}
+
+function buildUnusedImagesSection(images, dryRun) {
+  const container = createElement("div");
+  if (images.length === 0) {
+    container.appendChild(
+      createElement("div", {
+        className: "empty-state",
+        text: "🎉 No hay imágenes sin uso. ¡Todo limpio!",
+      })
+    );
+    return container;
+  }
+
+  const infoBox = createElement("div", { className: "info-box" });
+  infoBox.setAttribute("style", "margin-bottom: 20px;");
+  const paragraph = createElement("p");
+  paragraph.appendChild(
+    createElement("strong", {
+      text: dryRun
+        ? "Estas imágenes NO están siendo utilizadas"
+        : "Las siguientes imágenes fueron eliminadas",
+    })
+  );
+  paragraph.appendChild(
+    document.createTextNode(
+      dryRun
+        ? ' por ningún producto o categoría. Haz clic en "Eliminar Imágenes No Utilizadas" para eliminarlas permanentemente.'
+        : " exitosamente."
+    )
+  );
+  infoBox.appendChild(paragraph);
+  container.appendChild(infoBox);
+
+  const list = createElement("ul", { className: "image-list" });
+  images.forEach((imagePath) => {
+    const item = createElement("li", { className: "image-item" });
+    const info = createElement("div", { className: "image-info" });
+    info.appendChild(
+      createElement("div", { className: "image-path", text: imagePath })
+    );
+    const usage = createElement("div", { className: "image-usage" });
+    usage.appendChild(
+      createElement("span", {
+        className: "usage-badge usage-badge-danger",
+        text: "No utilizada",
+      })
+    );
+    info.appendChild(usage);
+    item.appendChild(info);
+    list.appendChild(item);
+  });
+  container.appendChild(list);
+  return container;
+}
+
+function buildUsedImagesSection(images) {
+  const container = createElement("div");
+  if (images.length === 0) {
+    container.appendChild(
+      createElement("div", {
+        className: "empty-state",
+        text: "No se encontraron imágenes en uso.",
+      })
+    );
+    return container;
+  }
+
+  const infoBox = createElement("div", { className: "info-box" });
+  infoBox.setAttribute("style", "margin-bottom: 20px;");
+  const paragraph = createElement("p");
+  paragraph.appendChild(
+    createElement("strong", {
+      text: "Estas imágenes están siendo utilizadas",
+    })
+  );
+  paragraph.appendChild(document.createTextNode(" y no serán eliminadas."));
+  infoBox.appendChild(paragraph);
+  container.appendChild(infoBox);
+
+  const list = createElement("ul", { className: "image-list" });
+  images.forEach((img) => {
+    const item = createElement("li", { className: "image-item" });
+    const info = createElement("div", { className: "image-info" });
+    info.appendChild(
+      createElement("div", { className: "image-path", text: img.path })
+    );
+
+    const usage = createElement("div", { className: "image-usage" });
+    usage.appendChild(
+      createElement("span", {
+        className: "usage-badge",
+        text: `${img.usageCount} uso${img.usageCount > 1 ? "s" : ""}`,
+      })
+    );
+
+    img.usedBy.slice(0, 3).forEach((use) => {
+      usage.appendChild(
+        createElement("span", {
+          className: "usage-badge usage-badge-success",
+          text: `${use.type === "product" ? "📦" : "📁"} ${
+            use.name || use.id
+          }`,
+        })
+      );
+    });
+
+    if (img.usageCount > 3) {
+      usage.appendChild(
+        createElement("span", {
+          className: "usage-badge",
+          text: `+${img.usageCount - 3} más`,
+        })
+      );
+    }
+
+    info.appendChild(usage);
+    item.appendChild(info);
+    list.appendChild(item);
+  });
+  container.appendChild(list);
+  return container;
+}
+
+function buildErrorsSection(errors) {
+  const container = createElement("div");
+
+  const infoBox = createElement("div", { className: "info-box" });
+  infoBox.setAttribute("style", "background: #f8d7da; border-left-color: #dc3545;");
+  const paragraph = createElement("p");
+  paragraph.appendChild(
+    createElement("strong", {
+      text: "Se encontraron errores durante la eliminación:",
+    })
+  );
+  infoBox.appendChild(paragraph);
+  container.appendChild(infoBox);
+
+  const list = createElement("ul", { className: "image-list" });
+  errors.forEach((error) => {
+    const item = createElement("li", { className: "image-item" });
+    const info = createElement("div", { className: "image-info" });
+    info.appendChild(
+      createElement("div", { className: "image-path", text: error.path })
+    );
+    const usage = createElement("div", { className: "image-usage" });
+    usage.appendChild(
+      createElement("span", {
+        className: "usage-badge usage-badge-danger",
+        text: `❌ ${error.error}`,
+      })
+    );
+    info.appendChild(usage);
+    item.appendChild(info);
+    list.appendChild(item);
+  });
+  container.appendChild(list);
+  return container;
+}
 
   // Event listeners para productos relacionados
   const relatedSearchInput = $("#relatedSearch");
@@ -835,7 +1460,8 @@ document.addEventListener("DOMContentLoaded", function () {
           searchProducts(query);
         }, 300);
       } else {
-        $("#searchResults").innerHTML = "";
+    const searchContainer = $("#searchResults");
+    if (searchContainer) clearElement(searchContainer);
       }
     });
   }
@@ -871,53 +1497,38 @@ document.addEventListener("DOMContentLoaded", function () {
 
     // Mostrar estado de carga
     statusDiv.className = "cleanup-status loading";
-    statusDiv.innerHTML = dryRun
-      ? "🔍 Escaneando imágenes y analizando uso..."
-      : "🗑️ Eliminando imágenes no utilizadas...";
+    setText(
+      statusDiv,
+      dryRun
+        ? "🔍 Escaneando imágenes y analizando uso..."
+        : "🗑️ Eliminando imágenes no utilizadas..."
+    );
 
     // Limpiar resultados previos
-    resultsDiv.innerHTML = "";
+    clearElement(resultsDiv);
 
     // Deshabilitar botones durante el proceso
     $("#scanImages").disabled = true;
     cleanButton.disabled = true;
 
     try {
-      const response = await fetch("/.netlify/functions/cleanUnusedImages", {
+      const result = await fetchJson("/.netlify/functions/cleanUnusedImages", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ dryRun }),
       });
-
-      // Verificar si la respuesta es exitosa
-      if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(`HTTP ${response.status}: ${errorText || 'Error del servidor'}`);
-      }
-
-      // Intentar parsear JSON, con manejo de error
-      let result;
-      try {
-        const responseText = await response.text();
-        if (!responseText || responseText.trim() === '') {
-          throw new Error('La respuesta del servidor está vacía');
-        }
-        result = JSON.parse(responseText);
-      } catch (parseError) {
-        console.error('Error parseando JSON:', parseError);
-        throw new Error(`Respuesta inválida del servidor: ${parseError.message}`);
-      }
 
       if (result.success) {
         lastScanResults = result;
 
         // Mostrar estado de éxito
         statusDiv.className = "cleanup-status success";
-        if (dryRun) {
-          statusDiv.innerHTML = `✅ Escaneo completado. Se encontraron ${result.summary.unusedImages} imágenes sin uso.`;
-        } else {
-          statusDiv.innerHTML = `✅ Limpieza completada. Se eliminaron ${result.summary.deletedImages} imágenes.`;
-        }
+        setText(
+          statusDiv,
+          dryRun
+            ? `✅ Escaneo completado. Se encontraron ${result.summary.unusedImages} imágenes sin uso.`
+            : `✅ Limpieza completada. Se eliminaron ${result.summary.deletedImages} imágenes.`
+        );
 
         // Habilitar botón de eliminación si hay imágenes para eliminar
         if (dryRun && result.summary.unusedImages > 0) {
@@ -932,19 +1543,31 @@ document.addEventListener("DOMContentLoaded", function () {
     } catch (error) {
       console.error("Error en limpieza de imágenes:", error);
       statusDiv.className = "cleanup-status error";
-      
+
       // Si fue un modo de eliminación (no dryRun), mostrar advertencia especial
+      clearElement(statusDiv);
       if (!dryRun) {
-        statusDiv.innerHTML = `
-          ⚠️ Error de comunicación: ${error.message}<br>
-          <small style="color: #856404; background: #fff3cd; padding: 8px; display: inline-block; margin-top: 8px; border-radius: 4px;">
-            <strong>IMPORTANTE:</strong> Las imágenes pueden haberse eliminado correctamente del repositorio,
-            pero hubo un error al recibir la confirmación del servidor. 
-            Verifica tu repositorio en GitHub para confirmar.
-          </small>
-        `;
+        statusDiv.appendChild(
+          createElement("p", {
+            className: "cleanup-error-text",
+            text: `⚠️ Error de comunicación: ${formatErrorMessage(
+              error.message
+            )}`,
+          })
+        );
+        statusDiv.appendChild(
+          createElement("small", {
+            className: "cleanup-warning",
+            text: "IMPORTANTE: Las imágenes pueden haberse eliminado correctamente del repositorio, pero hubo un error al recibir la confirmación del servidor. Verifica tu repositorio en GitHub para confirmar.",
+          })
+        );
       } else {
-        statusDiv.innerHTML = `❌ Error: ${error.message}`;
+        statusDiv.appendChild(
+          createElement("span", {
+            className: "cleanup-error-text",
+            text: `❌ Error: ${formatErrorMessage(error.message)}`,
+          })
+        );
       }
     } finally {
       // Rehabilitar botón de escaneo
@@ -952,212 +1575,4 @@ document.addEventListener("DOMContentLoaded", function () {
     }
   }
 
-  function renderCleanupResults(result) {
-    const resultsDiv = $("#cleanupResults");
-
-    const html = `
-      <div class="results-summary">
-        <h3>📊 Resumen del ${result.dryRun ? "Escaneo" : "Limpieza"}</h3>
-        <div class="summary-grid">
-          <div class="summary-item">
-            <span class="number">${result.summary.totalImagesInFolder}</span>
-            <span class="label">Total de Imágenes</span>
-          </div>
-          <div class="summary-item">
-            <span class="number" style="color: #28a745;">${
-              result.summary.imagesInUse
-            }</span>
-            <span class="label">En Uso</span>
-          </div>
-          <div class="summary-item">
-            <span class="number" style="color: #ffc107;">${
-              result.summary.unusedImages
-            }</span>
-            <span class="label">Sin Uso</span>
-          </div>
-          ${
-            !result.dryRun
-              ? `
-          <div class="summary-item">
-            <span class="number" style="color: #dc3545;">${result.summary.deletedImages}</span>
-            <span class="label">Eliminadas</span>
-          </div>
-          `
-              : ""
-          }
-        </div>
-      </div>
-
-      <div class="results-tabs">
-        <button class="tab-button active" data-tab="unused">
-          🗑️ Sin Uso (${result.details.unusedImages.length})
-        </button>
-        <button class="tab-button" data-tab="used">
-          ✅ En Uso (${result.details.usedImages.length})
-        </button>
-        ${
-          result.details.errors.length > 0
-            ? `
-        <button class="tab-button" data-tab="errors">
-          ❌ Errores (${result.details.errors.length})
-        </button>
-        `
-            : ""
-        }
-      </div>
-
-      <div class="tab-content active" id="tab-unused">
-        ${renderUnusedImages(result.details.unusedImages, result.dryRun)}
-      </div>
-
-      <div class="tab-content" id="tab-used">
-        ${renderUsedImages(result.details.usedImages)}
-      </div>
-
-      ${
-        result.details.errors.length > 0
-          ? `
-      <div class="tab-content" id="tab-errors">
-        ${renderErrors(result.details.errors)}
-      </div>
-      `
-          : ""
-      }
-    `;
-
-    resultsDiv.innerHTML = html;
-
-    // Agregar event listeners para las pestañas
-    resultsDiv.querySelectorAll(".tab-button").forEach((button) => {
-      button.addEventListener("click", () => {
-        const tabName = button.dataset.tab;
-
-        // Cambiar pestaña activa
-        resultsDiv
-          .querySelectorAll(".tab-button")
-          .forEach((b) => b.classList.remove("active"));
-        button.classList.add("active");
-
-        // Cambiar contenido activo
-        resultsDiv
-          .querySelectorAll(".tab-content")
-          .forEach((c) => c.classList.remove("active"));
-        resultsDiv.querySelector(`#tab-${tabName}`).classList.add("active");
-      });
-    });
-  }
-
-  function renderUnusedImages(images, dryRun) {
-    if (images.length === 0) {
-      return '<div class="empty-state">🎉 No hay imágenes sin uso. ¡Todo limpio!</div>';
-    }
-
-    return `
-      <div class="info-box" style="margin-bottom: 20px;">
-        <p>
-          ${
-            dryRun
-              ? `<strong>Estas imágenes NO están siendo utilizadas</strong> por ningún producto o categoría.
-               Haz clic en "Eliminar Imágenes No Utilizadas" para eliminarlas permanentemente.`
-              : `<strong>Las siguientes imágenes fueron eliminadas</strong> exitosamente.`
-          }
-        </p>
-      </div>
-      <ul class="image-list">
-        ${images
-          .map(
-            (imagePath) => `
-          <li class="image-item">
-            <div class="image-info">
-              <div class="image-path">${imagePath}</div>
-              <div class="image-usage">
-                <span class="usage-badge" style="background: #f8d7da; color: #721c24;">
-                  No utilizada
-                </span>
-              </div>
-            </div>
-          </li>
-        `
-          )
-          .join("")}
-      </ul>
-    `;
-  }
-
-  function renderUsedImages(images) {
-    if (images.length === 0) {
-      return '<div class="empty-state">No se encontraron imágenes en uso.</div>';
-    }
-
-    return `
-      <div class="info-box" style="margin-bottom: 20px;">
-        <p>
-          <strong>Estas imágenes están siendo utilizadas</strong> y no serán eliminadas.
-        </p>
-      </div>
-      <ul class="image-list">
-        ${images
-          .map(
-            (img) => `
-          <li class="image-item">
-            <div class="image-info">
-              <div class="image-path">${img.path}</div>
-              <div class="image-usage">
-                <span class="usage-badge">
-                  ${img.usageCount} uso${img.usageCount > 1 ? "s" : ""}
-                </span>
-                ${img.usedBy
-                  .slice(0, 3)
-                  .map(
-                    (use) => `
-                  <span class="usage-badge" style="background: #d4edda; color: #155724;">
-                    ${use.type === "product" ? "📦" : "📁"} ${
-                      use.name || use.id
-                    }
-                  </span>
-                `
-                  )
-                  .join("")}
-                ${
-                  img.usageCount > 3
-                    ? `<span class="usage-badge">+${
-                        img.usageCount - 3
-                      } más</span>`
-                    : ""
-                }
-              </div>
-            </div>
-          </li>
-        `
-          )
-          .join("")}
-      </ul>
-    `;
-  }
-
-  function renderErrors(errors) {
-    return `
-      <div class="info-box" style="background: #f8d7da; border-left-color: #dc3545;">
-        <p style="color: #721c24;">
-          <strong>Se encontraron errores durante la eliminación:</strong>
-        </p>
-      </div>
-      <ul class="image-list">
-        ${errors
-          .map(
-            (error) => `
-          <li class="image-item">
-            <div class="image-info">
-              <div class="image-path">${error.path}</div>
-              <div class="image-usage" style="color: #dc3545;">
-                ❌ ${error.error}
-              </div>
-            </div>
-          </li>
-        `
-          )
-          .join("")}
-      </ul>
-    `;
-  }
 });
